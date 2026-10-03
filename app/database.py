@@ -29,7 +29,9 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     """Abre una conexión a SQLite lista para usar."""
     path = db_path or DB_PATH
     Path(path).parent.mkdir(parents=True, exist_ok=True)  # crea data/ si no existe
-    conn = sqlite3.connect(path)
+    # check_same_thread=False: FastAPI puede atender una misma petición en hilos
+    # distintos. Es seguro porque cada petición abre y cierra su propia conexión.
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row            # cada fila se comporta como un diccionario
     conn.execute("PRAGMA foreign_keys = ON")  # SQLite no valida llaves foráneas si no se activa
     return conn
@@ -123,6 +125,18 @@ def init_db(db_path: str | None = None) -> None:
     """Crea todas las tablas e índices si todavía no existen."""
     with get_connection(db_path) as conn:
         conn.executescript(SCHEMA)
+
+
+def get_db():
+    """
+    Dependencia de FastAPI: entrega una conexión a cada petición y la cierra al terminar.
+    Las pruebas la reemplazan por una base de datos temporal.
+    """
+    conn = get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def list_tables(db_path: str | None = None) -> list[str]:
