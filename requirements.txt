@@ -1,0 +1,6 @@
+# Dependencias del proyecto (instalar con: pip install -r requirements.txt)
+fastapi>=0.118          # framework web para la API
+uvicorn[standard]>=0.37 # servidor que ejecuta la app FastAPI
+python-dotenv>=1.1      # lee la configuración desde el archivo .env
+pytest>=8.4             # pruebas automáticas
+httpx>=0.28             # cliente HTTP usado por las pruebas de FastAPI

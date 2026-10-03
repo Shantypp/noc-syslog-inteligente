@@ -1,0 +1,25 @@
+# ============================================================
+# .gitignore — archivos que NUNCA deben subirse a GitHub
+# ============================================================
+
+# --- Secretos (RNF-01: secretos fuera del código) ---
+.env
+*.key
+*.pem
+
+# --- Entorno virtual de Python (se recrea con requirements.txt) ---
+.venv/
+
+# --- Base de datos local (se regenera con init_db) ---
+data/*.db
+data/*.db-journal
+
+# --- Archivos temporales de Python ---
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# --- Editor y sistema operativo ---
+.vscode/
+Thumbs.db
+desktop.ini
