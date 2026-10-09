@@ -5,6 +5,7 @@ Tablas (ver docs / vault "Modelo de datos"):
   - devices        : inventario de equipos de red
   - events         : mensajes Syslog recibidos o importados
   - incidents      : incidentes abiertos a partir de eventos
+  - incident_log   : seguimiento de cada incidente (quién cambió qué y cuándo)
   - command_audit  : bitácora de comandos de la consola (quién, qué, cuándo, resultado)
 
 Ejecutar directamente para crear la base de datos:
@@ -102,6 +103,19 @@ CREATE TABLE IF NOT EXISTS incidents (
     causa           TEXT,
     solucion        TEXT
 );
+
+-- ---------------------------------------------------------------
+-- Seguimiento de incidentes: cada cambio queda con fecha y actor (RNF-03)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS incident_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id     INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    usuario         TEXT    NOT NULL,
+    accion          TEXT    NOT NULL,             -- creado, asignado, estado, nota, cerrado
+    detalle         TEXT,
+    fecha           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_incident_log ON incident_log(incident_id);
 
 -- ---------------------------------------------------------------
 -- Auditoría de comandos (RF-07, RF-08) — trazabilidad completa

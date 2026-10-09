@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NOC Syslog Inteligente</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- Barra superior: nombre del sistema, aviso de datos simulados y operador actual -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◉</span>
+      <div>
+        <strong>NOC Syslog Inteligente</strong>
+        <small>Administración y Gestión de Redes · 2026-2</small>
+      </div>
+    </div>
+    <span class="badge-sim" title="Los equipos y eventos de este laboratorio no son reales">DATOS SIMULADOS</span>
+    <label class="operador">
+      Operador
+      <input id="operador" maxlength="40" autocomplete="off" title="Queda registrado en incidentes y auditoría">
+    </label>
+  </header>
+
+  <div class="layout">
+    <!-- Menú lateral: cada enlace cambia la vista (#dashboard, #eventos, ...) -->
+    <nav class="menu" id="menu" aria-label="Secciones"></nav>
+
+    <!-- Aquí se dibuja la vista activa -->
+    <main id="vista" tabindex="-1"></main>
+  </div>
+
+  <!-- Mensajes emergentes (éxito / error) -->
+  <div id="toasts" aria-live="polite"></div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
