@@ -15,13 +15,13 @@ def db(tmp_path):
     return path
 
 
-def test_se_crean_las_cuatro_tablas(db):
-    assert list_tables(db) == ["command_audit", "devices", "events", "incidents"]
+def test_se_crean_todas_las_tablas(db):
+    assert list_tables(db) == ["command_audit", "devices", "events", "incident_log", "incidents"]
 
 
 def test_init_db_se_puede_ejecutar_dos_veces(db):
     init_db(db)  # no debe fallar
-    assert len(list_tables(db)) == 4
+    assert len(list_tables(db)) == 5
 
 
 def test_ip_duplicada_es_rechazada(db):
