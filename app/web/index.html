@@ -3,28 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NOC Syslog Inteligente</title>
+  <title>NOC Syslog</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%231f4e79'/%3E%3Cpath d='M20 12h-3l-2.5 6.5L9.5 5.5 7 12H4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <!-- Barra superior: nombre del sistema, aviso de datos simulados y operador actual -->
+  <!-- Barra superior: sistema, entorno y usuario de la sesión -->
   <header class="topbar">
-    <div class="brand">
-      <span class="logo">◉</span>
+    <div class="marca">
+      <span class="logo" id="logo"></span>
       <div>
-        <strong>NOC Syslog Inteligente</strong>
-        <small>Administración y Gestión de Redes · 2026-2</small>
+        <strong>NOC Syslog</strong>
+        <small>Centro de operaciones de red</small>
       </div>
     </div>
-    <span class="badge-sim" title="Los equipos y eventos de este laboratorio no son reales">DATOS SIMULADOS</span>
-    <label class="operador">
-      Operador
+    <span class="entorno" title="Los equipos y eventos de este laboratorio no son reales">Entorno de laboratorio · datos simulados</span>
+    <label class="usuario">
+      Usuario de la sesión
       <input id="operador" maxlength="40" autocomplete="off" title="Queda registrado en incidentes y auditoría">
     </label>
   </header>
 
   <div class="layout">
-    <!-- Menú lateral: cada enlace cambia la vista (#dashboard, #eventos, ...) -->
+    <!-- Menú lateral, agrupado en el orden en que se trabaja -->
     <nav class="menu" id="menu" aria-label="Secciones"></nav>
 
     <!-- Aquí se dibuja la vista activa -->

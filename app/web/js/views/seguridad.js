@@ -3,10 +3,10 @@
  * Muestra cada control exigido por el curso, cómo se implementa y su evidencia en vivo.
  */
 import { api } from "../api.js";
-import { el, chip, tabla, intentar } from "../ui.js";
+import { el, tabla, intentar, encabezado } from "../ui.js";
 
-export const titulo = "Seguridad IA";
-export const icono = "⛨";
+export const titulo = "Política de seguridad";
+export const icono = "seguridad";
 
 export async function render(cont) {
   const d = await api("/api/seguridad");
@@ -15,27 +15,38 @@ export async function render(cont) {
 
   async function analizar() {
     const r = await intentar(() => api("/api/seguridad/analizar", { method: "POST", body: { texto: texto.value } }));
-    if (r) resultado.replaceChildren(
-      r.sospechoso ? chip("⚠ SOSPECHOSO", "sospechoso") : chip("normal", "activo"), " ", r.accion);
+    if (r) resultado.replaceChildren(el("div", { class: r.sospechoso ? "aviso" : "aviso info" },
+      el("strong", {}, r.sospechoso ? "Resultado: sospechoso. " : "Resultado: normal. "), r.accion));
   }
 
+  const estado = (c) => el("span", { class: `estado ${c.estado === "activo" ? "verde" : "ambar"}` }, c.estado === "activo" ? "Implementado" : "Parcial (Corte 3)");
+
   cont.replaceChildren(
-    el("h1", {}, "Política de defensa frente a agentes de IA"),
-    el("p", { class: "ayuda" }, "Regla de oro: los logs son DATOS no confiables, nunca instrucciones. La IA puede sugerir; solo un humano autorizado aprueba cambios."),
-    el("section", { class: "panel" }, el("h2", {}, "Flujo obligatorio"),
-      el("div", { class: "acciones" }, d.flujo.map((paso, i) => [el("span", { class: "chip" }, `${i + 1}. ${paso}`), i < d.flujo.length - 1 ? "→" : null]))),
-    el("section", { class: "panel" }, el("h2", {}, "Controles y evidencia en vivo"),
+    encabezado("Cumplimiento", "Política de seguridad",
+      "Defensa frente a acciones no autorizadas de agentes de IA. Regla principal: los logs son datos no confiables, nunca instrucciones. Ningún cambio se ejecuta sin aprobación humana."),
+    el("section", { class: "panel" }, el("h2", {}, "Flujo obligatorio para cualquier acción"),
+      el("div", { class: "etapas" }, d.flujo.map((paso) => el("div", { class: "etapa hecha" }, paso)))),
+    el("section", { class: "panel" }, el("h2", {}, "Controles y evidencia"),
       tabla([
-        { titulo: "#", valor: (c) => c.n },
+        { titulo: "N.º", valor: (c) => c.n, clase: "num" },
         { titulo: "Control", valor: (c) => el("strong", {}, c.control) },
-        { titulo: "Implementación", valor: (c) => c.implementacion },
+        { titulo: "Cómo se implementa", valor: (c) => c.implementacion },
         { titulo: "Evidencia actual", valor: (c) => c.evidencia },
-        { titulo: "Estado", valor: (c) => chip(c.estado === "activo" ? "activo" : "parcial (C3)", c.estado === "activo" ? "activo" : "asignado") },
+        { titulo: "Estado", valor: estado },
       ], d.controles)),
-    el("section", { class: "panel" }, el("h2", {}, "Laboratorio: ¿un log puede manipular al sistema?"),
-      el("p", { class: "ayuda" }, "Escribe un texto como si llegara dentro de un log. Se analiza sin guardarlo y sin ejecutar nada."),
-      texto, el("div", { class: "acciones", style: "margin-top:8px" }, el("button", { onclick: analizar }, "Analizar")), resultado),
-    el("section", { class: "panel" }, el("h2", {}, "Configuración activa"),
-      el("pre", { class: "codigo" }, Object.entries(d.configuracion).map(([k, v]) => `${k} = ${v}`).join("\n"))),
+    el("div", { class: "grid-2" },
+      el("section", { class: "panel" }, el("h2", {}, "Prueba: ¿un log puede dar órdenes al sistema?"),
+        el("p", { class: "nota" }, "Escriba un texto como si llegara dentro de un log. Se analiza sin guardarlo y sin ejecutar nada."),
+        texto, el("div", { class: "acciones", style: "margin-top:8px" }, el("button", { onclick: analizar }, "Analizar texto")), resultado),
+      el("section", { class: "panel" }, el("h2", {}, "Parámetros activos"),
+        tabla([
+          { titulo: "Parámetro", valor: (p) => p[0] },
+          { titulo: "Valor", valor: (p) => p[1], clase: "num" },
+        ], [
+          ["Receptor Syslog (UDP)", d.configuracion.udp],
+          ["Ventana para agrupar repetidos", `${d.configuracion.ventana_dedup_s} s`],
+          ["Máximo de mensajes por minuto", d.configuracion.rate_limit_min],
+          ["Severidad que genera propuesta de incidente", `0 a ${d.configuracion.umbral_incidente}`],
+        ]))),
   );
 }

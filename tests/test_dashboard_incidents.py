@@ -120,4 +120,10 @@ def test_incidente_manual_requiere_titulo_y_severidad(client):
 
 def test_la_interfaz_web_se_sirve(client):
     r = client.get("/")
-    assert r.status_code == 200 and "NOC Syslog Inteligente" in r.text
+    assert r.status_code == 200 and "NOC Syslog" in r.text
+
+
+def test_dashboard_cuenta_aprobaciones_pendientes(client):
+    assert client.get("/api/dashboard").json()["tarjetas"]["aprobaciones_pendientes"] == 0
+    client.post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": "configure terminal", "usuario": "ana"})
+    assert client.get("/api/dashboard").json()["tarjetas"]["aprobaciones_pendientes"] == 1

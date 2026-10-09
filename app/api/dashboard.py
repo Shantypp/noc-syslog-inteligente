@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.events import enriquecer
 from app.collector import ingest
+from app.console.audit import PENDIENTE
 from app.database import get_db
 from app.incidents.policy import UMBRAL_INCIDENTE, UMBRAL_SIN_COMUNICACION_MIN, propuestas
 from app.utils import hace
@@ -75,6 +76,7 @@ def resumen(conn: sqlite3.Connection = Depends(get_db)):
                                    desde_24h),
             "incidentes_abiertos": uno("SELECT COUNT(*) FROM incidents WHERE estado != 'cerrado'"),
             "propuestas_pendientes": len(propuestas(conn, limite=500)),
+            "aprobaciones_pendientes": uno("SELECT COUNT(*) FROM command_audit WHERE resultado = ?", PENDIENTE),
         },
         "umbral_sin_comunicacion_min": UMBRAL_SIN_COMUNICACION_MIN,
         "equipos": equipos,
