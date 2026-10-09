@@ -5,7 +5,7 @@
 >
 > ⚠️ **Todos los dispositivos y eventos de este repositorio son SIMULADOS** (IPs de documentación `192.0.2.0/24`, RFC 5737). No se conecta a ningún equipo real.
 
-![Dashboard](docs/evidencias/E05-dashboard.png)
+![Panel general](docs/evidencias/E05-dashboard.png)
 
 ## Problema que resuelve
 
@@ -17,16 +17,16 @@ Una red con equipos de varios fabricantes (Cisco, Fortinet, Huawei) produce even
 
 | # | Función | Requisito | Dónde |
 |---|---|---|---|
-| 1 | Inventario editable de equipos (nombre, IP, marca, modelo, versión, ubicación, estado, fecha de actualización) | RF-01 | Inventario |
+| 1 | Inventario editable de equipos (nombre, IP, marca, modelo, versión, ubicación, estado, fecha de actualización) | RF-01 | Inventario de equipos |
 | 2 | Recepción Syslog por UDP e importación de archivos `.log` | RF-02 | Eventos |
 | 3 | Clasificación por equipo, fabricante, fecha, facility y severidad 0–7 (RFC 3164 y RFC 5424) | RF-03 | Eventos |
-| 4 | Dashboard: estado de equipos, eventos recientes, críticos e incidentes | RF-04 | Dashboard |
+| 4 | Panel general: flujo de trabajo guiado, estado de equipos, eventos recientes, críticos e incidentes | RF-04 | Panel general |
 | 5 | Filtros por fecha, marca, equipo y severidad con total | RF-04 | Eventos |
 | 6 | Incidentes: propuesta por política, creación, asignación, seguimiento, SLA y cierre | RF-05 | Incidentes |
-| 7 | Generador de configuraciones Syslog comentadas para Cisco, Fortinet y Huawei | RF-06 | Configuraciones |
-| 8 | Consola tipo PuTTY **simulada** de solo lectura con allowlist, bloqueos y modos (ROMMON) | RF-07 | Consola |
+| 7 | Generador de configuraciones Syslog comentadas para Cisco, Fortinet y Huawei | RF-06 | Plantillas de configuración |
+| 8 | Consola tipo PuTTY **simulada** de solo lectura con allowlist, bloqueos y modos (ROMMON) | RF-07 | Consola de equipos |
 | 9 | Auditoría con hash SHA-256, revisión humana de propuestas y exportación CSV | RF-08 | Auditoría |
-| 10 | Política de defensa frente a agentes de IA con evidencia en vivo | RNF-09 | Seguridad IA |
+| 10 | Política de defensa frente a agentes de IA con evidencia en vivo | RNF-09 | Política de seguridad |
 
 ## Arquitectura
 
@@ -99,7 +99,10 @@ En otra terminal, simula equipos enviando Syslog:
 ```powershell
 python scripts/enviar_syslog_prueba.py              # envía data/muestras_simuladas.log
 python scripts/enviar_syslog_prueba.py --tormenta   # 500 mensajes iguales (prueba de deduplicación)
+python scripts/enviar_syslog_prueba.py --puerto 5599 # si el colector usa otro puerto UDP
 ```
+
+La interfaz está organizada en el orden de trabajo del operador: **Operación** (panel general, eventos, incidentes) → **Administración** (inventario, plantillas) → **Control de cambios** (consola, auditoría) → **Cumplimiento** (política de seguridad). El panel general muestra los 4 pasos del flujo y cuántas tareas hay pendientes en cada uno.
 
 ## Pruebas
 
@@ -107,7 +110,7 @@ python scripts/enviar_syslog_prueba.py --tormenta   # 500 mensajes iguales (prue
 pytest -v
 ```
 
-81 pruebas automáticas: parser, inventario, ingreso, filtros, dashboard, incidentes, configuraciones, consola, auditoría e IA. Ver [docs/pruebas.md](docs/pruebas.md).
+82 pruebas automáticas: parser, inventario, ingreso, filtros, panel general, incidentes, configuraciones, consola, auditoría e IA. Ver [docs/pruebas.md](docs/pruebas.md).
 
 ## Respaldo y recuperación
 
