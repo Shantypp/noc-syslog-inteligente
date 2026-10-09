@@ -8,6 +8,7 @@ y abrir http://127.0.0.1:8000/docs
 
 from fastapi import FastAPI
 
+from app.api import devices
 from app.database import init_db
 
 app = FastAPI(
@@ -18,6 +19,9 @@ app = FastAPI(
 
 # Crea las tablas al arrancar (si ya existen, no hace nada).
 init_db()
+
+# Registro de módulos de la API
+app.include_router(devices.router)
 
 
 @app.get("/api/health", tags=["sistema"])
