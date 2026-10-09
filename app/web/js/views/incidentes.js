@@ -70,7 +70,8 @@ export async function render(cont) {
       if (r) { dialogo.close(); cargar(); }
     }
 
-    dialogo.replaceChildren(
+    // Se envuelve en el(): replaceChildren() no acepta listas y convertiría null en el texto "null"
+    dialogo.replaceChildren(el("div", {},
       el("h1", {}, `INC-${inc.id} · `, inc.titulo),
       el("p", {}, sevBadge(inc.severidad), " ", chip(inc.estado), " · Equipo: ", inc.equipo || "—", " · SLA ", `${inc.sla_minutos} min`),
       inc.evento ? el("pre", { class: "codigo" }, `Evento original #${inc.evento.id} (${inc.evento.origen}):\n${inc.evento.mensaje_crudo}`) : null,
@@ -88,7 +89,7 @@ export async function render(cont) {
           el("div", { class: "acciones", style: "margin-top:10px" }, el("button", { class: "peligro", onclick: cerrar }, "Cerrar incidente")),
         ],
       el("div", { class: "acciones", style: "margin-top:16px;justify-content:flex-end" }, el("button", { class: "secundario", onclick: () => dialogo.close() }, "Volver")),
-    );
+    ));
     dialogo.showModal();
   }
 
