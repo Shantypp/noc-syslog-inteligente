@@ -1,74 +1,89 @@
 /**
- * views/auditoria.js — Bitácora de comandos y revisión humana de propuestas (RF-08, HU-05).
+ * views/auditoria.js — Bitácora de comandos y aprobación de cambios (RF-08, HU-05).
  * Responde: ¿quién propuso, quién aprobó y qué pasó con cada comando?
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, operador } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, operador, encabezado, formulario } from "../ui.js";
 
 export const titulo = "Auditoría";
-export const icono = "✎";
+export const icono = "auditoria";
 
 export async function render(cont) {
   const filtro = el("select", {}, el("option", { value: "" }, "Todas"),
-    ["PERMITIDO", "BLOQUEADO", "PROPUESTA", "NO_VERIFICADO"].map((d) => el("option", { value: d }, d)));
+    ["PERMITIDO", "BLOQUEADO", "PROPUESTA", "NO_VERIFICADO"].map((d) => el("option", { value: d }, { PERMITIDO: "Permitido", BLOQUEADO: "Bloqueado", PROPUESTA: "Propuesta", NO_VERIFICADO: "No verificado" }[d])));
   const pendientes = el("div");
   const bitacora = el("div");
-  const integridad = el("p");
+  const integridad = el("div");
+  const usuarioActual = el("strong");
 
   async function decidir(fila, aprobar) {
     let motivo = null;
-    if (!aprobar) {
-      motivo = prompt("Motivo del rechazo:", "");
-      if (motivo === null) return;
+    if (aprobar) {
+      const ok = await formulario({ titulo: `Aprobar cambio #${fila.id}`, aceptar: "Aprobar",
+        descripcion: `Comando "${fila.comando}" propuesto por ${fila.usuario} en ${fila.equipo || "sin equipo"}. En esta versión la ejecución es simulada: no se envía nada a ningún equipo.` });
+      if (!ok) return;
+    } else {
+      const d = await formulario({ titulo: `Rechazar cambio #${fila.id}`, aceptar: "Rechazar", peligro: true,
+        campos: [{ id: "motivo", etiqueta: "Motivo del rechazo", tipo: "textarea", requerido: true }] });
+      if (!d) return;
+      motivo = d.motivo;
     }
     const r = await intentar(() => api(`/api/auditoria/${fila.id}/${aprobar ? "aprobar" : "rechazar"}`, { method: "POST", body: { usuario: operador(), motivo } }),
-      aprobar ? "Propuesta aprobada (ejecución simulada)" : "Propuesta rechazada");
-    if (r) cargar();
+      aprobar ? "Cambio aprobado (ejecución simulada)" : "Cambio rechazado");
+    if (r) { cargar(); window.dispatchEvent(new Event("noc:actualizar-menu")); }
   }
 
   async function cargar() {
+    usuarioActual.textContent = operador();
     const [pend, todos, integ] = await Promise.all([
       api("/api/auditoria", { query: { pendientes: true } }),
       api("/api/auditoria", { query: { decision: filtro.value } }),
       api("/api/auditoria/integridad"),
     ]);
     integridad.replaceChildren(integ.alterados.length
-      ? el("span", { style: "color:var(--peligro)" }, `⚠ ${integ.alterados.length} registro(s) ALTERADO(S): ${integ.alterados.join(", ")}`)
-      : el("span", { style: "color:var(--ok)" }, `✔ Integridad verificada: ${integ.integros}/${integ.total} registros coinciden con su hash SHA-256`));
+      ? el("div", { class: "aviso" }, el("strong", {}, "Alerta de integridad: "), `${integ.alterados.length} registro(s) fueron modificados fuera de la aplicación (N.º ${integ.alterados.join(", ")}).`)
+      : el("div", { class: "aviso info" }, el("strong", {}, "Integridad verificada: "),
+          integ.total === 1 ? "el registro coincide con su huella SHA-256; no fue alterado."
+            : `los ${integ.total} registros coinciden con su huella SHA-256. Ningún registro fue alterado.`));
 
     pendientes.replaceChildren(tabla([
-      { titulo: "#", valor: (a) => a.id },
-      { titulo: "Fecha", valor: (a) => fecha(a.fecha) },
-      { titulo: "Propuso", valor: (a) => a.usuario },
+      { titulo: "N.º", valor: (a) => a.id, clase: "num" },
+      { titulo: "Fecha", valor: (a) => fecha(a.fecha), clase: "num" },
+      { titulo: "Propuesto por", valor: (a) => a.usuario },
       { titulo: "Equipo", valor: (a) => a.equipo || "—" },
       { titulo: "Comando", clase: "mensaje", valor: (a) => a.comando },
-      { titulo: `Revisión (como "${operador()}")`, valor: (a) => el("div", { class: "acciones" },
+      { titulo: "Decisión", valor: (a) => el("div", { class: "acciones" },
           el("button", { class: "pequeno", onclick: () => decidir(a, true) }, "Aprobar"),
           el("button", { class: "pequeno peligro", onclick: () => decidir(a, false) }, "Rechazar")) },
-    ], pend, "No hay propuestas pendientes"));
+    ], pend, "No hay cambios pendientes de aprobación."));
 
     bitacora.replaceChildren(tabla([
-      { titulo: "#", valor: (a) => a.id },
-      { titulo: "Fecha", valor: (a) => fecha(a.fecha) },
+      { titulo: "N.º", valor: (a) => a.id, clase: "num" },
+      { titulo: "Fecha", valor: (a) => fecha(a.fecha), clase: "num" },
       { titulo: "Usuario", valor: (a) => a.usuario },
       { titulo: "Equipo", valor: (a) => a.equipo || "—" },
       { titulo: "Comando", clase: "mensaje", valor: (a) => a.comando },
       { titulo: "Decisión", valor: (a) => chip(a.decision) },
       { titulo: "Aprobado por", valor: (a) => a.aprobado_por || "—" },
-      { titulo: "Resultado", valor: (a) => a.resultado },
-      { titulo: "Hash", clase: "mensaje", valor: (a) => el("span", { title: a.hash_evidencia }, a.hash_evidencia.slice(0, 12) + "…") },
-    ], todos, "Sin registros. Usa la Consola para generar actividad."));
+      { titulo: "Resultado", valor: (a) => a.resultado === "PENDIENTE_APROBACION" ? "Pendiente de aprobación" : a.resultado },
+      { titulo: "Huella", clase: "mensaje", valor: (a) => el("span", { title: a.hash_evidencia }, a.hash_evidencia.slice(0, 10)) },
+    ], todos, "Sin registros. La actividad de la Consola de equipos aparece aquí."));
   }
 
   filtro.addEventListener("change", cargar);
   cont.replaceChildren(
-    el("h1", {}, "Auditoría de comandos"),
-    el("p", { class: "ayuda" }, "Flujo seguro: propuesta → revisión humana → aprobación → ejecución autorizada (simulada en el MVP) → verificación → auditoría. Quien propone no puede aprobar su propia propuesta."),
-    el("section", { class: "panel" }, el("h2", {}, "Propuestas pendientes de revisión humana"), pendientes),
+    encabezado("Control de cambios", "Auditoría",
+      "Registro de cada comando: quién lo escribió, cuándo, en qué equipo y qué decidió el sistema. Los cambios propuestos se aprueban aquí.",
+      el("a", { href: "/api/auditoria/exportar", download: "auditoria_noc.csv" }, el("button", { class: "secundario" }, "Exportar CSV"))),
     el("section", { class: "panel" },
-      el("div", { class: "filtros" }, el("label", {}, "Decisión", filtro),
-        el("a", { href: "/api/auditoria/exportar", download: "auditoria_noc.csv" }, el("button", { class: "secundario" }, "Exportar CSV"))),
-      integridad, bitacora),
+      el("h2", {}, "Cambios pendientes de aprobación"),
+      el("p", { class: "nota" }, "Separación de funciones: un cambio debe aprobarlo un usuario distinto a quien lo propuso. Usuario de la sesión: ", usuarioActual, "."),
+      pendientes),
+    el("section", { class: "panel" },
+      el("h2", {}, "Bitácora de comandos"),
+      integridad,
+      el("div", { class: "filtros" }, el("label", {}, "Decisión", filtro)),
+      bitacora),
   );
   await cargar();
 }

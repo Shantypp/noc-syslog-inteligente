@@ -66,7 +66,7 @@ def estado(conn: sqlite3.Connection = Depends(get_db)):
               "4 perfiles: Cisco IOS XE, FortiGate, Huawei VRP, ROMMON"),
             c(8, "Roles, retención, integridad, respaldo, transporte seguro",
               "Hash SHA-256 por registro de auditoría; respaldo con scripts/backup_db.py. RBAC y TLS en Corte 3.",
-              f"Integridad {integ['integros']}/{integ['total']}" + (f" · ⚠ alterados: {integ['alterados']}" if integ['alterados'] else ""), "parcial"),
+              f"Integridad {integ['integros']}/{integ['total']}" + (f" · registros alterados: {integ['alterados']}" if integ['alterados'] else ""), "parcial"),
             c(9, "Deduplicación, límite de frecuencia y tormentas",
               f"Ventana de {ingest.VENTANA_DEDUP} s y máximo {ingest.limitador_global.limite} mensajes/min.",
               f"{agrupados} mensajes repetidos agrupados · {est['limitado']} descartados por límite"),

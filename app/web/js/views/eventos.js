@@ -3,14 +3,14 @@
  * Filtros: fecha desde/hasta, marca, equipo y rango de severidad. El total se actualiza.
  */
 import { api, subirArchivo } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, intentar, operador, aviso, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, intentar, operador, aviso, encabezado, formulario, SEVERIDADES } from "../ui.js";
 
 export const titulo = "Eventos";
-export const icono = "≡";
+export const icono = "eventos";
 
 const opcionesSev = (sel) => SEVERIDADES.map((n, i) => el("option", { value: i, selected: i === sel }, `${i} · ${n}`));
 
-/** Fecha local del input (AAAA-MM-DD) -> ISO UTC del inicio o del final de ese día. */
+/** Fecha local del campo (AAAA-MM-DD) -> ISO UTC del inicio o del final de ese día. */
 function limiteDia(valor, finDelDia) {
   if (!valor) return "";
   return new Date(`${valor}T${finDelDia ? "23:59:59" : "00:00:00"}`).toISOString();
@@ -43,36 +43,42 @@ export async function render(cont) {
       },
     }));
     if (!r || numero !== ultimaConsulta) return; // llegó tarde: ya hay una consulta más reciente
-    total.textContent = `${r.total} evento(s) cumplen el filtro${r.total > r.eventos.length ? ` · mostrando ${r.eventos.length}` : ""}`;
+    total.textContent = `${r.total} evento(s) cumplen el filtro${r.total > r.eventos.length ? ` · se muestran ${r.eventos.length}` : ""}`;
     resultado.replaceChildren(tabla([
-      { titulo: "ID", valor: (e) => e.id },
-      { titulo: "Recibido", valor: (e) => fecha(e.recibido_en) },
-      { titulo: "Equipo", valor: (e) => [e.equipo || "—", el("br"), el("small", {}, e.marca || "")] },
+      { titulo: "ID", valor: (e) => e.id, clase: "num" },
+      { titulo: "Recibido", valor: (e) => fecha(e.recibido_en), clase: "num" },
+      { titulo: "Equipo", valor: (e) => [e.equipo || "—", el("br"), el("small", {}, e.marca || "")], clase: "nowrap" },
       { titulo: "Severidad", valor: (e) => sevBadge(e.severidad) },
-      { titulo: "Facility", valor: (e) => `${e.facility} · ${e.facility_nombre}` },
-      { titulo: "Mensaje", clase: "mensaje", valor: (e) => [e.sospechoso ? chip("⚠ sospechoso", "sospechoso") : null, e.sospechoso ? " " : null, e.mensaje, e.repeticiones > 1 ? ` (×${e.repeticiones})` : null] },
-      { titulo: "Origen", valor: (e) => e.origen },
+      { titulo: "Facility", valor: (e) => `${e.facility} · ${e.facility_nombre}`, clase: "num" },
+      { titulo: "Mensaje", clase: "mensaje", valor: (e) => [e.sospechoso ? el("span", { class: "marca-sospechoso" }, "SOSPECHOSO") : null, e.mensaje, e.repeticiones > 1 ? ` (×${e.repeticiones})` : null] },
+      { titulo: "Origen", valor: (e) => chip(e.origen) },
       { titulo: "Incidente", valor: (e) => e.incident_id
           ? el("a", { href: "#incidentes" }, `INC-${e.incident_id}`)
-          : el("button", { class: "pequeno secundario", onclick: () => crearIncidente(e) }, "Crear") },
-    ], r.eventos, "Ningún evento cumple el filtro"));
+          : el("button", { class: "pequeno secundario", onclick: () => abrirIncidente(e) }, "Abrir incidente") },
+    ], r.eventos, "Ningún evento cumple el filtro."));
   }
 
-  async function crearIncidente(e) {
-    const responsable = prompt(`Crear incidente para el evento ${e.id}.\nResponsable (opcional):`, "");
-    if (responsable === null) return; // canceló
+  async function abrirIncidente(e) {
+    const datos = await formulario({
+      titulo: `Abrir incidente para el evento ${e.id}`,
+      descripcion: `${e.equipo || "Equipo"} · severidad ${e.severidad} (${SEVERIDADES[e.severidad]})`,
+      campos: [{ id: "responsable", etiqueta: "Responsable", ayuda: "Opcional. Si lo indica, el incidente queda asignado." }],
+      aceptar: "Abrir incidente",
+    });
+    if (!datos) return;
     const inc = await intentar(() => api("/api/incidents", {
-      method: "POST", body: { usuario: operador(), event_id: e.id, responsable: responsable.trim() || null },
-    }), "Incidente creado");
-    if (inc) buscar();
+      method: "POST", body: { usuario: operador(), event_id: e.id, responsable: datos.responsable || null },
+    }), "Incidente abierto");
+    if (inc) { buscar(); window.dispatchEvent(new Event("noc:actualizar-menu")); }
   }
 
   const archivo = el("input", { type: "file", accept: ".log,.txt" });
   async function importar() {
-    if (!archivo.files[0]) return aviso("Elige un archivo .log", "error");
+    if (!archivo.files[0]) return aviso("Seleccione un archivo .log", "error");
     const r = await intentar(() => subirArchivo("/api/events/importar", archivo.files[0]));
     if (r) {
-      aviso(`Importado: ${Object.entries(r.resumen).map(([k, v]) => `${k}=${v}`).join(", ")}`);
+      const nombres = { guardado: "guardados", duplicado: "repetidos", fuente_no_autorizada: "de equipos no registrados", invalido: "inválidos", limitado: "descartados" };
+      aviso(`Archivo importado: ${Object.entries(r.resumen).map(([k, v]) => `${v} ${nombres[k] || k}`).join(", ")}`);
       buscar();
     }
   }
@@ -84,19 +90,20 @@ export async function render(cont) {
   }
 
   cont.replaceChildren(
-    el("h1", {}, "Eventos Syslog"),
-    el("p", { class: "ayuda" }, "Clasificados por equipo, fabricante, fecha, facility y severidad. Los mensajes se muestran como texto: nunca se ejecutan."),
+    encabezado("Operación", "Eventos",
+      "Mensajes Syslog recibidos, clasificados por equipo, fabricante, fecha, facility y severidad. Los mensajes se muestran siempre como texto: nunca se ejecutan."),
     el("section", { class: "panel" },
+      el("h2", {}, "Filtros"),
       el("div", { class: "filtros" },
         el("label", {}, "Desde", f.desde), el("label", {}, "Hasta", f.hasta),
         el("label", {}, "Marca", f.marca), el("label", {}, "Equipo", f.equipo),
-        el("label", {}, "Severidad mín.", f.sevMin), el("label", {}, "Severidad máx.", f.sevMax),
-        el("label", {}, "Solo sospechosos", f.sospechosos),
-        el("div", { class: "acciones" }, el("button", { onclick: buscar }, "Filtrar"), el("button", { class: "secundario", onclick: limpiar }, "Limpiar"))),
+        el("label", {}, "Severidad mínima", f.sevMin), el("label", {}, "Severidad máxima", f.sevMax),
+        el("label", { class: "check" }, f.sospechosos, "Solo sospechosos"),
+        el("div", { class: "acciones" }, el("button", { onclick: buscar }, "Aplicar filtros"), el("button", { class: "secundario", onclick: limpiar }, "Limpiar"))),
       total, resultado),
-    el("section", { class: "panel" }, el("h2", {}, "Importar archivo .log (un mensaje por línea)"),
-      el("div", { class: "filtros" }, archivo, el("button", { onclick: importar }, "Importar")),
-      el("p", { class: "ayuda" }, "Ejemplo incluido: data/muestras_simuladas.log [SIMULADO]")),
+    el("section", { class: "panel" }, el("h2", {}, "Importar eventos desde archivo"),
+      el("p", { class: "nota" }, "Archivo de texto con un mensaje Syslog por línea. Ejemplo incluido: data/muestras_simuladas.log (datos simulados)."),
+      el("div", { class: "filtros" }, archivo, el("button", { class: "secundario", onclick: importar }, "Importar archivo"))),
   );
   buscar();
 }

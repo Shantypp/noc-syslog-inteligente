@@ -44,7 +44,7 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | RNF-03 | Trazabilidad | Cada evento/acción con fecha y actor | `recibido_en`, `incident_log`, `command_audit` con usuario y fecha | ✅ |
 | RNF-04 | Confiabilidad | Errores controlados y bitácora | Validaciones (422/404/409), el receptor UDP no cae ante mensajes malos, `logging` | ✅ |
 | RNF-05 | Portabilidad | Instalación desde cero | README con pasos exactos; `requirements.txt` | ✅ |
-| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 81 pruebas | ✅ |
+| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 82 pruebas | ✅ |
 | RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación (máx. 500), deduplicación y rate limit | ✅ |
 | RNF-08 | Recuperación | Copia y rollback | `scripts/backup_db.py` (respaldo/restauración) y tags de Git | ✅ |
 | RNF-09 | Seguridad IA | Logs nunca como instrucciones | Ver [politica-ia.md](politica-ia.md) | ✅ |

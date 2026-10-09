@@ -1,6 +1,6 @@
 # Pruebas · v0.2.0
 
-Ejecutar: `pytest -v` → **81 pruebas, todas pasan**.
+Ejecutar: `pytest -v` → **82 pruebas, todas pasan**.
 
 ## Pruebas automáticas por módulo
 
@@ -10,7 +10,7 @@ Ejecutar: `pytest -v` → **81 pruebas, todas pasan**.
 | `test_devices.py` | CRUD de inventario, 422 / 404 / 409, filtro por marca | 8 |
 | `test_parser.py` | PRI → facility/severidad, RFC 3164, RFC 5424, Huawei, inválidos | 8 |
 | `test_ingest.py` | Allowlist, laboratorio, deduplicación, rate limit, inyección, importación | 7 |
-| `test_dashboard_incidents.py` | Filtros con total, fechas, dashboard, sin comunicación, ciclo de incidente | 10 |
+| `test_dashboard_incidents.py` | Filtros con total, fechas, panel general, sin comunicación, ciclo de incidente, aprobaciones pendientes | 11 |
 | `test_configgen_console.py` | Plantillas, validación anti-inyección, 18 decisiones de consola, auditoría, aprobación, integridad, CSV | 32 |
 | `test_security.py` | Detección de manipulación, falsos positivos, política, XSS | 11 |
 
@@ -18,13 +18,13 @@ Ejecutar: `pytest -v` → **81 pruebas, todas pasan**.
 
 | ID | Req. | Procedimiento | Resultado esperado | Evidencia |
 |---|---|---|---|---|
-| PF-01 | RF-01 | Crear, editar y eliminar un equipo en *Inventario* | Cambios visibles; "Actualizado" cambia | E04 |
+| PF-01 | RF-01 | *Inventario de equipos* → **Registrar equipo**, editar y eliminar | Cambios visibles; "Actualizado" cambia | E04 |
 | PF-02 | RF-02 | `python scripts/enviar_syslog_prueba.py` con el servidor encendido | Eventos aparecen en *Eventos* | E06 |
 | PF-03 | RF-04 | *Eventos*: severidad máx. 3 + marca Cisco | Total = 3 | E07 |
-| PF-04 | RF-05 | *Incidentes*: crear desde propuesta → asignar → en progreso → cerrar | Estados, fechas y seguimiento | E08 |
-| PF-05 | RF-06 | *Configuraciones*: las 3 marcas con 192.0.2.10 / warnings | Plantillas comentadas | E09 |
-| PF-06 | RF-07 | *Consola*: `show version`, `reload`, `configure terminal` | Permitido / Bloqueado / Propuesta | E10 |
-| PF-07 | RF-08 | *Auditoría*: aprobar con otro nombre de operador; exportar CSV | Aprobación registrada; CSV descargado | E10 |
+| PF-04 | RF-05 | *Incidentes*: **Abrir incidente** desde un evento grave → **Gestionar** (en progreso, nota) → cerrar con causa y solución | Estados, fechas y seguimiento | E08 |
+| PF-05 | RF-06 | *Plantillas de configuración*: las 3 marcas con 192.0.2.10 / warnings | Plantillas comentadas | E09 |
+| PF-06 | RF-07 | *Consola de equipos*: `show version`, `reload`, `configure terminal` | Permitido / Bloqueado / Propuesta | E10 |
+| PF-07 | RF-08 | *Auditoría*: cambiar el "Usuario de la sesión" y **Aprobar**; exportar CSV | Aprobación registrada; CSV descargado | E10 |
 | PF-08 | HU-01 | Esperar 10 min sin enviar eventos | Equipos pasan a "sin comunicación" | E05 |
 
 ## Pruebas de seguridad

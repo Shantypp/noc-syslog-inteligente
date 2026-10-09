@@ -5,7 +5,10 @@ Formato basado en *Keep a Changelog*. Versiones según el plan del curso.
 ## [0.2.0] — MVP Corte 2
 
 ### Agregado
-- Interfaz web (HTML/CSS/JS sin frameworks): dashboard, eventos, incidentes, inventario, configuraciones, consola, auditoría y seguridad IA.
+- Interfaz web administrativa (HTML/CSS/JS sin frameworks), con menú en el orden de trabajo: Operación (panel general, eventos, incidentes), Administración (inventario, plantillas), Control de cambios (consola, auditoría) y Cumplimiento (política de seguridad).
+- Panel general con el flujo de trabajo del operador en 4 pasos y contadores de tareas pendientes en el menú.
+- Formularios propios (registrar equipo, abrir/gestionar/cerrar incidente, aprobar/rechazar cambios) en lugar de las ventanas del navegador.
+- Opción `--puerto` en el generador de Syslog de prueba.
 - Filtros de eventos por fecha, marca, equipo y severidad con conteo total.
 - Política de incidentes: eventos 0–2 generan propuesta; creación, asignación, seguimiento (incident_log), SLA y cierre con causa/solución.
 - Estado "sin comunicación" por equipo según el último evento (HU-01).
