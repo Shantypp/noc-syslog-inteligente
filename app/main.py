@@ -1,22 +1,28 @@
 """
-main.py — Punto de entrada de la API.
+main.py — Punto de entrada de la aplicación.
 
 Ejecutar:
     uvicorn app.main:app --reload
-y abrir http://127.0.0.1:8000/docs
+y abrir:
+    http://127.0.0.1:8000        -> interfaz web del NOC
+    http://127.0.0.1:8000/docs   -> documentación interactiva de la API
 """
 
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-from app.api import devices, events
+from app.api import dashboard, devices, events, incidents
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+CARPETA_WEB = Path(__file__).parent / "web"
 
 
 @asynccontextmanager
@@ -41,9 +47,15 @@ app = FastAPI(
 # Registro de módulos de la API
 app.include_router(devices.router)
 app.include_router(events.router)
+app.include_router(incidents.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/api/health", tags=["sistema"])
 def health():
     """Comprobación rápida de que la API está viva."""
     return {"estado": "ok", "version": app.version}
+
+
+# La interfaz web (HTML/CSS/JS) se sirve desde la raíz. Va AL FINAL para no tapar las rutas /api.
+app.mount("/", StaticFiles(directory=CARPETA_WEB, html=True), name="web")
