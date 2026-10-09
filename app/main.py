@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import configgen, console, dashboard, devices, events, incidents
+from app.api import configgen, console, dashboard, devices, events, incidents, security
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import init_db
 
@@ -40,7 +40,7 @@ async def ciclo_de_vida(app: FastAPI):
 app = FastAPI(
     title="NOC Syslog Inteligente",
     description="API del NOC académico. Datos SIMULADOS.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=ciclo_de_vida,
 )
 
@@ -51,6 +51,16 @@ app.include_router(incidents.router)
 app.include_router(dashboard.router)
 app.include_router(configgen.router)
 app.include_router(console.router)
+app.include_router(security.router)
+
+
+@app.middleware("http")
+async def sin_cache_en_la_interfaz(request, call_next):
+    """El navegador revalida HTML/JS/CSS en cada carga: evita ver una versión vieja tras actualizar."""
+    respuesta = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        respuesta.headers["Cache-Control"] = "no-cache"
+    return respuesta
 
 
 @app.get("/api/health", tags=["sistema"])

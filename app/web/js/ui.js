@@ -21,7 +21,7 @@ export function el(tag, attrs = {}, ...hijos) {
     else if (k === "value") nodo.value = v;
     else nodo.setAttribute(k, v === true ? "" : v);
   }
-  for (const h of hijos.flat()) {
+  for (const h of hijos.flat(Infinity)) { // acepta listas anidadas de hijos
     if (h === null || h === undefined || h === false) continue;
     nodo.append(h instanceof Node ? h : document.createTextNode(String(h)));
   }
