@@ -1,5 +1,10 @@
 """Configuración compartida de pruebas: cada prueba usa una base de datos temporal."""
 
+import os
+
+# En las pruebas no se abre el puerto UDP real
+os.environ["SYSLOG_UDP_ENABLED"] = "0"
+
 import pytest
 from fastapi.testclient import TestClient
 
