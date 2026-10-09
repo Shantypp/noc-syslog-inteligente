@@ -9,8 +9,11 @@ import * as dashboard from "./views/dashboard.js";
 import * as eventos from "./views/eventos.js";
 import * as incidentes from "./views/incidentes.js";
 import * as inventario from "./views/inventario.js";
+import * as configs from "./views/configs.js";
+import * as consola from "./views/consola.js";
+import * as auditoria from "./views/auditoria.js";
 
-const VISTAS = { dashboard, eventos, incidentes, inventario };
+const VISTAS = { dashboard, eventos, incidentes, inventario, configs, consola, auditoria };
 
 let detenerVista = null; // algunas vistas se refrescan solas; al salir se detienen
 
