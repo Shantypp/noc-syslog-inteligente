@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import dashboard, devices, events, incidents
+from app.api import configgen, console, dashboard, devices, events, incidents
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import init_db
 
@@ -49,6 +49,8 @@ app.include_router(devices.router)
 app.include_router(events.router)
 app.include_router(incidents.router)
 app.include_router(dashboard.router)
+app.include_router(configgen.router)
+app.include_router(console.router)
 
 
 @app.get("/api/health", tags=["sistema"])
