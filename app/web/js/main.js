@@ -12,8 +12,9 @@ import * as inventario from "./views/inventario.js";
 import * as configs from "./views/configs.js";
 import * as consola from "./views/consola.js";
 import * as auditoria from "./views/auditoria.js";
+import * as seguridad from "./views/seguridad.js";
 
-const VISTAS = { dashboard, eventos, incidentes, inventario, configs, consola, auditoria };
+const VISTAS = { dashboard, eventos, incidentes, inventario, configs, consola, auditoria, seguridad };
 
 let detenerVista = null; // algunas vistas se refrescan solas; al salir se detienen
 

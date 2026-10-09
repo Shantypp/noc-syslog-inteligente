@@ -1,0 +1,5 @@
+# Normaliza finales de línea en el repositorio (evita avisos LF/CRLF en Windows)
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.db binary

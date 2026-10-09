@@ -13,6 +13,7 @@
 # --- Base de datos local (se regenera con init_db) ---
 data/*.db
 data/*.db-journal
+data/backups/
 
 # --- Archivos temporales de Python ---
 __pycache__/
