@@ -68,6 +68,14 @@ export function icono(nombre, tam = 18) {
   return svg;
 }
 
+/**
+ * Reemplaza el contenido de un contenedor ignorando null/undefined/false.
+ * (replaceChildren() convertiría null en el texto "null").
+ */
+export function montar(cont, ...hijos) {
+  cont.replaceChildren(...hijos.flat(Infinity).filter((h) => h !== null && h !== undefined && h !== false));
+}
+
 /** Fecha ISO (UTC) -> hora local legible. */
 export function fecha(iso) {
   if (!iso) return "—";

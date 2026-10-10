@@ -3,7 +3,7 @@
  * Solo los equipos registrados aquí pueden enviar Syslog (lista permitida de fuentes).
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar, puede, avisoRol } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar, puede, avisoRol, montar } from "../ui.js";
 
 export const titulo = "Inventario de equipos";
 export const icono = "inventario";
@@ -62,7 +62,7 @@ export async function render(cont) {
     ], equipos, "No hay equipos registrados. Use el botón Registrar equipo o ejecute: python -m app.seed"));
   }
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Administración", "Inventario de equipos",
       "Equipos de red autorizados. Solo los equipos registrados aquí pueden enviar eventos al NOC (lista permitida de fuentes).",
       puede("administrador") ? el("button", { onclick: () => guardar(null) }, "Registrar equipo") : null),

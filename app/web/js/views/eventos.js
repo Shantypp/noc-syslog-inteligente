@@ -3,7 +3,7 @@
  * Filtros: fecha desde/hasta, marca, equipo y rango de severidad. El total se actualiza.
  */
 import { api, subirArchivo } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, intentar, aviso, encabezado, formulario, componente, puede, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, intentar, aviso, encabezado, formulario, componente, puede, SEVERIDADES, montar } from "../ui.js";
 
 export const titulo = "Eventos";
 export const icono = "eventos";
@@ -90,7 +90,7 @@ export async function render(cont) {
     buscar();
   }
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Operación", "Eventos",
       "Mensajes Syslog recibidos, clasificados por equipo, fabricante, fecha, facility y severidad. Los mensajes se muestran siempre como texto: nunca se ejecutan."),
     el("section", { class: "panel" },

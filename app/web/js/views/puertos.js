@@ -4,7 +4,7 @@
  * El estado actual de cada componente es el de su último evento.
  */
 import { api } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, encabezado } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, encabezado, montar } from "../ui.js";
 
 export const titulo = "Puertos y componentes";
 export const icono = "puertos";
@@ -38,7 +38,7 @@ export async function render(cont) {
   }
 
   soloProblemas.addEventListener("change", cargar);
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Operación", "Puertos y componentes",
       "Indica qué parte de cada equipo está generando el problema: puertos e interfaces, fuentes de poder, sensores, túneles VPN y clúster de alta disponibilidad. Se identifica automáticamente a partir del texto de cada evento."),
     el("div", { class: "filtros" }, el("label", { class: "check" }, soloProblemas, "Mostrar solo componentes con problema")),

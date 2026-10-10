@@ -79,18 +79,25 @@ async function cerrarSesion() {
   mostrarLogin();
 }
 
+let turno = 0; // cada navegación tiene un número; solo la última se muestra
+
 async function navegar() {
   if (!sesion.usuario) return;
   const pedido = location.hash.slice(1);
   const id = pedido in VISTAS && visible(pedido) ? pedido : "dashboard";
   const vista = VISTAS[id];
+  const miTurno = ++turno;
   if (detenerVista) detenerVista();
   detenerVista = null;
   dibujarMenu(id);
-  const contenedor = document.getElementById("vista");
-  contenedor.replaceChildren();
   document.title = `${vista.titulo} · NOC Syslog`;
-  detenerVista = (await vista.render(contenedor)) || null;
+  // La vista se dibuja en un contenedor propio. Si mientras tanto el usuario pidió otra
+  // pantalla, esta se descarta: así una vista lenta no "pisa" a la más reciente.
+  const contenedor = el("div");
+  const detener = (await vista.render(contenedor)) || null;
+  if (miTurno !== turno) { if (detener) detener(); return; }
+  detenerVista = detener;
+  document.getElementById("vista").replaceChildren(contenedor);
 }
 
 function mostrarLogin() {

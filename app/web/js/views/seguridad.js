@@ -3,7 +3,7 @@
  * Muestra cada control exigido por el curso, cómo se implementa y su evidencia en vivo.
  */
 import { api } from "../api.js";
-import { el, tabla, intentar, encabezado } from "../ui.js";
+import { el, tabla, intentar, encabezado, montar } from "../ui.js";
 
 export const titulo = "Política de seguridad";
 export const icono = "seguridad";
@@ -21,7 +21,7 @@ export async function render(cont) {
 
   const estado = (c) => el("span", { class: `estado ${c.estado === "activo" ? "verde" : "ambar"}` }, c.estado === "activo" ? "Implementado" : "Parcial (Corte 3)");
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Cumplimiento", "Política de seguridad",
       "Defensa frente a acciones no autorizadas de agentes de IA. Regla principal: los logs son datos no confiables, nunca instrucciones. Ningún cambio se ejecuta sin aprobación humana."),
     el("section", { class: "panel" }, el("h2", {}, "Flujo obligatorio para cualquier acción"),

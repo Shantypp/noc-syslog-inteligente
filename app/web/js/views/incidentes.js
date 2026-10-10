@@ -5,7 +5,7 @@
  * una persona los revisa y decide abrirlos o no.
  */
 import { api } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, intentar, encabezado, formulario, componente, puede, avisoRol, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, intentar, encabezado, formulario, componente, puede, avisoRol, SEVERIDADES, montar } from "../ui.js";
 
 export const titulo = "Incidentes";
 export const icono = "incidentes";
@@ -35,7 +35,7 @@ export async function render(cont) {
     listaPropuestas.replaceChildren(tabla([
       { titulo: "Evento", valor: (p) => p.id, clase: "num" },
       { titulo: "Recibido", valor: (p) => fecha(p.recibido_en), clase: "num" },
-      { titulo: "Equipo", valor: (p) => p.equipo || "—" },
+      { titulo: "Equipo", valor: (p) => p.equipo || "—", clase: "nowrap" },
       { titulo: "Severidad", valor: (p) => sevBadge(p.severidad) },
       { titulo: "Componente", valor: componente },
       { titulo: "Mensaje", clase: "mensaje", valor: (p) => [p.sospechoso ? el("span", { class: "marca-sospechoso" }, "SOSPECHOSO · verificar origen") : null, p.mensaje] },
@@ -46,7 +46,7 @@ export async function render(cont) {
       { titulo: "N.º", valor: (i) => el("strong", {}, `INC-${i.id}`), clase: "nowrap" },
       { titulo: "Severidad", valor: (i) => sevBadge(i.severidad) },
       { titulo: "Descripción", valor: (i) => i.titulo },
-      { titulo: "Equipo", valor: (i) => i.equipo || "—" },
+      { titulo: "Equipo", valor: (i) => i.equipo || "—", clase: "nowrap" },
       { titulo: "Componente", valor: componente },
       { titulo: "Estado", valor: (i) => chip(i.estado) },
       { titulo: "Responsable", valor: (i) => i.responsable || "Sin asignar" },
@@ -130,7 +130,7 @@ export async function render(cont) {
   }
 
   filtro.addEventListener("change", cargar);
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Operación", "Incidentes",
       "Paso 1: revise los eventos graves que propone el sistema y decida si abre un incidente. Paso 2: asigne un responsable, registre el seguimiento y cierre documentando causa y solución."),
     puede("operador") ? null : avisoRol("Puede consultar los incidentes, pero abrirlos y gestionarlos requiere el rol Operador."),

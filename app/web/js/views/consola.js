@@ -5,7 +5,7 @@
  * Si estuviera solo en JavaScript, cualquiera podría saltársela con F12.
  */
 import { api } from "../api.js";
-import { el, encabezado, chip, sesion } from "../ui.js";
+import { el, encabezado, chip, sesion, montar } from "../ui.js";
 
 export const titulo = "Consola de equipos";
 export const icono = "consola";
@@ -25,6 +25,7 @@ export async function render(cont) {
   const permitidos = el("ul", { class: "lista-comandos" });
   const historial = [];
   let posHistorial = 0;
+  let perfilAnterior = null; // para no repetir el aviso si el perfil no cambió
 
   const escribir = (texto, clase) => {
     salida.append(el("div", { class: clase }, texto));
@@ -41,7 +42,8 @@ export async function render(cont) {
       return el("li", {}, el("button", { type: "button", disabled: !autorizado, title: autorizado ? null : `Requiere el rol ${c.rol_nombre}`,
         onclick: () => { entrada.value = c.comando; entrada.focus(); } }, c.comando, autorizado ? null : el("span", { class: "bloqueado-rol" }, `  (requiere ${c.rol_nombre})`)));
     }));
-    escribir(`Perfil activo: ${p.nombre}. Escriba "help" para ver los comandos permitidos.`, "t-info");
+    if (p.id !== perfilAnterior) escribir(`Perfil activo: ${p.nombre}. Escriba "help" para ver los comandos permitidos.`, "t-info");
+    perfilAnterior = p.id;
   }
 
   selEquipo.addEventListener("change", () => {
@@ -73,7 +75,7 @@ export async function render(cont) {
     enviar(comando);
   });
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Control de cambios", "Consola de equipos",
       "Consola de solo lectura, sin conexión a equipos reales (simulación). Los comandos de consulta se responden; los de cambio quedan como propuesta para aprobación; los peligrosos se bloquean. Todo queda registrado en Auditoría."),
     el("div", { class: "filtros" }, el("label", {}, "Equipo", selEquipo), el("label", {}, "Perfil / modo del equipo", selPerfil)),

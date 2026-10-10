@@ -3,7 +3,7 @@
  * Roles: Lector (consulta) · Operador (atiende y propone) · Administrador (aprueba y administra).
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, encabezado, formulario, sesion } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, sesion, montar } from "../ui.js";
 
 export const titulo = "Usuarios";
 export const icono = "usuarios";
@@ -81,7 +81,7 @@ export async function render(cont) {
     if (await intentar(() => api(`/api/usuarios/${u.id}`, { method: "PATCH", body: { activo } }), activo ? "Usuario activado" : "Usuario desactivado")) cargar();
   }
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Administración", "Usuarios",
       "Cada persona entra con su propio usuario. El rol define qué puede hacer: el Lector solo consulta; el Operador atiende incidentes y propone cambios; el Administrador aprueba cambios de otros y administra el sistema.",
       el("button", { onclick: crear }, "Crear usuario")),

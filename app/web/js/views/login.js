@@ -3,7 +3,7 @@
  * La contraseña viaja al servidor, que responde con una cookie HttpOnly (JavaScript no la puede leer).
  */
 import { api } from "../api.js";
-import { el, icono } from "../ui.js";
+import { el, icono, montar } from "../ui.js";
 
 export function render(cont, alEntrar) {
   const usuario = el("input", { autocomplete: "username", required: true, maxlength: 60 });
@@ -28,7 +28,7 @@ export function render(cont, alEntrar) {
     }
   }
 
-  cont.replaceChildren(el("div", { class: "login-caja" },
+  montar(cont, el("div", { class: "login-caja" },
     el("div", { class: "marca" }, el("span", { class: "logo" }, icono("actividad", 18)),
       el("div", {}, el("strong", {}, "NOC Syslog"), el("small", {}, "Centro de operaciones de red"))),
     el("h1", {}, "Iniciar sesión"),

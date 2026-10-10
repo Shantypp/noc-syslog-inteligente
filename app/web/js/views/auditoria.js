@@ -3,7 +3,7 @@
  * Responde: ¿quién propuso, quién aprobó y qué pasó con cada comando?
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, encabezado, formulario, puede, sesion } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, puede, sesion, montar } from "../ui.js";
 
 export const titulo = "Auditoría";
 export const icono = "auditoria";
@@ -50,7 +50,7 @@ export async function render(cont) {
       { titulo: "N.º", valor: (a) => a.id, clase: "num" },
       { titulo: "Fecha", valor: (a) => fecha(a.fecha), clase: "num" },
       { titulo: "Propuesto por", valor: (a) => a.usuario },
-      { titulo: "Equipo", valor: (a) => a.equipo || "—" },
+      { titulo: "Equipo", valor: (a) => a.equipo || "—", clase: "nowrap" },
       { titulo: "Comando", clase: "mensaje", valor: (a) => a.comando },
       { titulo: "Decisión", valor: (a) => !puede("administrador") ? el("span", { class: "suave" }, "Requiere Administrador")
           : a.usuario.toLowerCase() === sesion.usuario.usuario.toLowerCase() ? el("span", { class: "suave" }, "Propuesto por usted: debe aprobarlo otro administrador")
@@ -63,7 +63,7 @@ export async function render(cont) {
       { titulo: "N.º", valor: (a) => a.id, clase: "num" },
       { titulo: "Fecha", valor: (a) => fecha(a.fecha), clase: "num" },
       { titulo: "Usuario", valor: (a) => a.usuario },
-      { titulo: "Equipo", valor: (a) => a.equipo || "—" },
+      { titulo: "Equipo", valor: (a) => a.equipo || "—", clase: "nowrap" },
       { titulo: "Comando", clase: "mensaje", valor: (a) => a.comando },
       { titulo: "Decisión", valor: (a) => chip(a.decision) },
       { titulo: "Aprobado por", valor: (a) => a.aprobado_por || "—" },
@@ -73,7 +73,7 @@ export async function render(cont) {
   }
 
   filtro.addEventListener("change", cargar);
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Control de cambios", "Auditoría",
       "Registro de cada comando: quién lo escribió, cuándo, en qué equipo y qué decidió el sistema. Los cambios propuestos se aprueban aquí.",
       el("a", { href: "/api/auditoria/exportar", download: "auditoria_noc.csv" }, el("button", { class: "secundario" }, "Exportar CSV"))),
