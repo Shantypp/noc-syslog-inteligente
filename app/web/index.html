@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+  <!-- Pantalla de inicio de sesión (se muestra si no hay sesión) -->
+  <div id="login" hidden></div>
+
+  <div id="app" hidden>
   <!-- Barra superior: sistema, entorno y usuario de la sesión -->
   <header class="topbar">
     <div class="marca">
@@ -18,10 +22,8 @@
       </div>
     </div>
     <span class="entorno" title="Los equipos y eventos de este laboratorio no son reales">Entorno de laboratorio · datos simulados</span>
-    <label class="usuario">
-      Usuario de la sesión
-      <input id="operador" maxlength="40" autocomplete="off" title="Queda registrado en incidentes y auditoría">
-    </label>
+    <!-- Usuario de la sesión, su rol y acciones de cuenta -->
+    <div class="usuario" id="usuario-sesion"></div>
   </header>
 
   <div class="layout">
@@ -30,6 +32,8 @@
 
     <!-- Aquí se dibuja la vista activa -->
     <main id="vista" tabindex="-1"></main>
+  </div>
+
   </div>
 
   <!-- Mensajes emergentes (éxito / error) -->

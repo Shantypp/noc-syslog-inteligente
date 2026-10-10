@@ -26,6 +26,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* "hidden" siempre gana sobre display:grid/flex */
 html, body { margin: 0; height: 100%; }
 body { background: var(--fondo); color: var(--texto); font: 14px/1.5 "Segoe UI", Roboto, Arial, sans-serif; }
 a { color: var(--primario); }
@@ -44,7 +45,9 @@ small { color: var(--tenue); }
 .marca small { display: block; font-size: 12px; line-height: 1.2; }
 .entorno { font-size: 12px; color: var(--alerta); background: var(--alerta-suave); border: 1px solid #ecd9a6; padding: 3px 10px; border-radius: 4px; }
 .usuario { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--tenue); font-size: 13px; }
-.usuario input { width: 170px; }
+.usuario .quien { text-align: right; line-height: 1.25; }
+.usuario .quien strong { display: block; color: var(--texto); font-size: 13.5px; }
+.usuario button { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---------- Distribución ---------- */
 .layout { display: grid; grid-template-columns: 236px 1fr; min-height: calc(100vh - 56px); }
@@ -74,7 +77,7 @@ main { padding: 22px 28px 40px; min-width: 0; }
 .panel .nota { color: var(--tenue); font-size: 13px; margin: -6px 0 12px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
 .grid-2 > .panel { margin-bottom: 0; }
-.tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio); padding: 12px 14px; border-top: 3px solid var(--borde-fuerte); }
 .tarjeta .valor { font-size: 26px; font-weight: 600; line-height: 1.2; }
 .tarjeta .etiqueta { color: var(--tenue); font-size: 12.5px; }
@@ -212,3 +215,27 @@ dialog .pie { padding: 12px 20px; border-top: 1px solid var(--borde); display: f
   .grid-2, .grid-consola, .flujo { grid-template-columns: 1fr; }
   .paso { border-right: 0; border-bottom: 1px solid var(--borde); }
 }
+
+/* ---------- Inicio de sesión ---------- */
+#login { min-height: 100vh; display: grid; place-items: center; background: var(--fondo); padding: 20px; }
+.login-caja { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 28px 30px; box-shadow: 0 6px 24px rgb(15 23 32 / .08); }
+.login-caja .marca { margin-bottom: 18px; }
+.login-caja h1 { font-size: 18px; margin-bottom: 4px; }
+.login-caja p { color: var(--tenue); margin: 0 0 18px; font-size: 13px; }
+.login-caja form { display: grid; gap: 14px; }
+.login-caja label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--tenue); }
+.login-caja input { padding: 9px 10px; }
+.login-caja button { padding: 9px; font-size: 14px; }
+.login-caja .pie-login { margin-top: 16px; font-size: 12px; color: var(--suave); }
+
+/* ---------- Componentes (puertos, fuentes, sensores) ---------- */
+.suave { color: var(--suave); }
+.componente { white-space: nowrap; }
+.equipo-puertos { margin-bottom: 18px; }
+.equipo-puertos h2 { display: flex; align-items: center; gap: 10px; }
+.equipo-puertos h2 small { font-weight: 400; }
+.problemas { color: var(--peligro); font-size: 12.5px; }
+.ok-texto { color: var(--ok); font-size: 12.5px; }
+.bloqueado-rol { color: var(--suave); }
+.lista-comandos button:disabled { opacity: .55; cursor: not-allowed; }
+.lista-comandos button { white-space: normal; }

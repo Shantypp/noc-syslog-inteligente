@@ -3,7 +3,7 @@
  * Responde: ¿quién propuso, quién aprobó y qué pasó con cada comando?
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, operador, encabezado, formulario } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, puede, sesion } from "../ui.js";
 
 export const titulo = "Auditoría";
 export const icono = "auditoria";
@@ -28,13 +28,13 @@ export async function render(cont) {
       if (!d) return;
       motivo = d.motivo;
     }
-    const r = await intentar(() => api(`/api/auditoria/${fila.id}/${aprobar ? "aprobar" : "rechazar"}`, { method: "POST", body: { usuario: operador(), motivo } }),
+    const r = await intentar(() => api(`/api/auditoria/${fila.id}/${aprobar ? "aprobar" : "rechazar"}`, { method: "POST", body: { motivo } }),
       aprobar ? "Cambio aprobado (ejecución simulada)" : "Cambio rechazado");
     if (r) { cargar(); window.dispatchEvent(new Event("noc:actualizar-menu")); }
   }
 
   async function cargar() {
-    usuarioActual.textContent = operador();
+    usuarioActual.textContent = `${sesion.usuario.nombre} (${sesion.usuario.rol_nombre})`;
     const [pend, todos, integ] = await Promise.all([
       api("/api/auditoria", { query: { pendientes: true } }),
       api("/api/auditoria", { query: { decision: filtro.value } }),
@@ -52,7 +52,9 @@ export async function render(cont) {
       { titulo: "Propuesto por", valor: (a) => a.usuario },
       { titulo: "Equipo", valor: (a) => a.equipo || "—" },
       { titulo: "Comando", clase: "mensaje", valor: (a) => a.comando },
-      { titulo: "Decisión", valor: (a) => el("div", { class: "acciones" },
+      { titulo: "Decisión", valor: (a) => !puede("administrador") ? el("span", { class: "suave" }, "Requiere Administrador")
+          : a.usuario.toLowerCase() === sesion.usuario.usuario.toLowerCase() ? el("span", { class: "suave" }, "Propuesto por usted: debe aprobarlo otro administrador")
+          : el("div", { class: "acciones" },
           el("button", { class: "pequeno", onclick: () => decidir(a, true) }, "Aprobar"),
           el("button", { class: "pequeno peligro", onclick: () => decidir(a, false) }, "Rechazar")) },
     ], pend, "No hay cambios pendientes de aprobación."));
@@ -77,7 +79,7 @@ export async function render(cont) {
       el("a", { href: "/api/auditoria/exportar", download: "auditoria_noc.csv" }, el("button", { class: "secundario" }, "Exportar CSV"))),
     el("section", { class: "panel" },
       el("h2", {}, "Cambios pendientes de aprobación"),
-      el("p", { class: "nota" }, "Separación de funciones: un cambio debe aprobarlo un usuario distinto a quien lo propuso. Usuario de la sesión: ", usuarioActual, "."),
+      el("p", { class: "nota" }, "Solo un administrador aplica cambios, y nunca los que él mismo propuso (separación de funciones). Usuario de la sesión: ", usuarioActual, "."),
       pendientes),
     el("section", { class: "panel" },
       el("h2", {}, "Bitácora de comandos"),

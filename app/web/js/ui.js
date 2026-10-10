@@ -8,6 +8,15 @@
 
 export const SEVERIDADES = ["Emergencia", "Alerta", "Crítico", "Error", "Advertencia", "Aviso", "Informativo", "Depuración"];
 
+/** Usuario de la sesión (lo llena main.js al iniciar sesión). */
+export const sesion = { usuario: null };
+const NIVEL = { lector: 0, operador: 1, administrador: 2 };
+
+/** ¿El usuario de la sesión tiene al menos este rol? (el servidor lo vuelve a verificar) */
+export function puede(rolMinimo) {
+  return !!sesion.usuario && NIVEL[sesion.usuario.rol] >= NIVEL[rolMinimo];
+}
+
 /**
  * Crea un elemento HTML de forma segura.
  *   el("button", { class: "pequeno", onclick: fn }, "Guardar")
@@ -41,6 +50,9 @@ const TRAZOS = {
   auditoria: [["rect", { x: 8, y: 2, width: 8, height: 4, rx: 1 }], ["path", { d: "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4" }]],
   seguridad: [["path", { d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" }], ["path", { d: "m9 12 2 2 4-4" }]],
   actividad: [["path", { d: "M22 12h-4l-3 9L9 3l-3 9H2" }]],
+  puertos: [["rect", { x: 3, y: 8, width: 18, height: 12, rx: 2 }], ["path", { d: "M7 8V5h3v3M14 8V5h3v3M7 13h2M11 13h2M15 13h2" }]],
+  usuarios: [["path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }], ["circle", { cx: 9, cy: 7, r: 4 }], ["path", { d: "M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" }]],
+  salir: [["path", { d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" }]],
 };
 
 export function icono(nombre, tam = 18) {
@@ -73,6 +85,9 @@ const ESTADOS = {
   abierto: ["Abierto", "rojo"], asignado: ["Asignado", "ambar"], en_progreso: ["En progreso", "azul"], cerrado: ["Cerrado", "verde"],
   PERMITIDO: ["Permitido", "verde"], BLOQUEADO: ["Bloqueado", "rojo"], PROPUESTA: ["Propuesta", "ambar"], NO_VERIFICADO: ["No verificado", "violeta"],
   simulado: ["Simulado", ""], real: ["Real", "azul"],
+  "Arriba": ["Arriba", "verde"], "Caído": ["Caído", "rojo"], "Falla": ["Falla", "rojo"], "Crítico": ["Crítico", "rojo"],
+  "Conmutación": ["Conmutación", "ambar"], "Advertencia": ["Advertencia", "ambar"],
+  lector: ["Lector", ""], operador: ["Operador", "azul"], administrador: ["Administrador", "violeta"],
 };
 export function chip(valor) {
   const [texto, color] = ESTADOS[valor] || [String(valor), ""];
@@ -114,9 +129,20 @@ export async function intentar(fn, exito) {
   }
 }
 
-/** Nombre del usuario de la sesión. Queda en incidentes y auditoría. */
+/** Usuario (login) de la sesión. El servidor lo toma de la sesión, no de este valor. */
 export function operador() {
-  return document.getElementById("operador").value.trim() || "operador";
+  return sesion.usuario ? sesion.usuario.usuario : "";
+}
+
+/** Componente afectado de un evento: "GigabitEthernet0/1 · Caído". */
+export function componente(e) {
+  if (!e.componente) return el("span", { class: "suave" }, "—");
+  return el("span", { class: "componente" }, el("strong", {}, e.componente), " ", e.estado_componente ? chip(e.estado_componente) : null);
+}
+
+/** Aviso cuando el rol no permite una acción (para que el usuario entienda por qué no ve el botón). */
+export function avisoRol(texto) {
+  return el("div", { class: "aviso info" }, el("strong", {}, `Su rol: ${sesion.usuario?.rol_nombre || "—"}. `), texto);
 }
 
 /**
@@ -131,7 +157,8 @@ export function formulario({ titulo, descripcion, campos = [], aceptar = "Guarda
     const filas = campos.map((c) => {
       const control = c.tipo === "textarea" ? el("textarea", { rows: 3, value: c.valor ?? "" })
         : c.tipo === "select" ? el("select", {}, c.opciones.map((o) => el("option", { value: o.valor, selected: o.valor === c.valor }, o.texto)))
-        : el("input", { value: c.valor ?? "", autocomplete: "off" });
+        : el("input", { value: c.valor ?? "", type: c.tipo === "password" ? "password" : "text",
+            autocomplete: c.tipo === "password" ? "new-password" : "off" });
       control.addEventListener("input", () => { error.textContent = ""; });
       entradas[c.id] = control;
       return el("label", {}, c.etiqueta + (c.requerido ? " *" : ""), control, c.ayuda ? el("span", { class: "ayuda" }, c.ayuda) : null);

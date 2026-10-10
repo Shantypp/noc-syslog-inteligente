@@ -5,7 +5,7 @@
  * una persona los revisa y decide abrirlos o no.
  */
 import { api } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, intentar, operador, encabezado, formulario, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, intentar, encabezado, formulario, componente, puede, avisoRol, SEVERIDADES } from "../ui.js";
 
 export const titulo = "Incidentes";
 export const icono = "incidentes";
@@ -37,8 +37,9 @@ export async function render(cont) {
       { titulo: "Recibido", valor: (p) => fecha(p.recibido_en), clase: "num" },
       { titulo: "Equipo", valor: (p) => p.equipo || "—" },
       { titulo: "Severidad", valor: (p) => sevBadge(p.severidad) },
+      { titulo: "Componente", valor: componente },
       { titulo: "Mensaje", clase: "mensaje", valor: (p) => [p.sospechoso ? el("span", { class: "marca-sospechoso" }, "SOSPECHOSO · verificar origen") : null, p.mensaje] },
-      { titulo: "Decisión", valor: (p) => el("button", { class: "pequeno", onclick: () => abrirDesdeEvento(p) }, "Abrir incidente") },
+      { titulo: "Decisión", valor: (p) => puede("operador") ? el("button", { class: "pequeno", onclick: () => abrirDesdeEvento(p) }, "Abrir incidente") : "—" },
     ], props, "No hay eventos graves pendientes de revisión."));
 
     listaIncidentes.replaceChildren(tabla([
@@ -46,24 +47,25 @@ export async function render(cont) {
       { titulo: "Severidad", valor: (i) => sevBadge(i.severidad) },
       { titulo: "Descripción", valor: (i) => i.titulo },
       { titulo: "Equipo", valor: (i) => i.equipo || "—" },
+      { titulo: "Componente", valor: componente },
       { titulo: "Estado", valor: (i) => chip(i.estado) },
       { titulo: "Responsable", valor: (i) => i.responsable || "Sin asignar" },
       { titulo: "Abierto", valor: (i) => fecha(i.abierto_en), clase: "num" },
       { titulo: "Tiempo / SLA", clase: "num", valor: (i) => i.estado === "cerrado" ? `${i.minutos_abierto} min`
           : el("span", { class: i.sla_vencido ? "texto-peligro" : null }, `${i.minutos_abierto} de ${i.sla_minutos} min${i.sla_vencido ? " · vencido" : ""}`) },
-      { titulo: "", valor: (i) => el("button", { class: "pequeno secundario", onclick: () => gestionar(i.id) }, i.estado === "cerrado" ? "Ver detalle" : "Gestionar") },
+      { titulo: "", valor: (i) => el("button", { class: "pequeno secundario", onclick: () => gestionar(i.id) }, i.estado === "cerrado" || !puede("operador") ? "Ver detalle" : "Gestionar") },
     ], incs, "No hay incidentes con este filtro."));
   }
 
   async function abrirDesdeEvento(p) {
     const datos = await formulario({
       titulo: "Abrir incidente",
-      descripcion: `Evento ${p.id} de ${p.equipo || "equipo desconocido"} · severidad ${p.severidad} (${SEVERIDADES[p.severidad]})`,
+      descripcion: `Evento ${p.id} de ${p.equipo || "equipo desconocido"} · severidad ${p.severidad} (${SEVERIDADES[p.severidad]})${p.componente ? ` · componente afectado: ${p.componente} (${p.estado_componente})` : ""}`,
       campos: [{ id: "responsable", etiqueta: "Responsable", ayuda: "Opcional. Si lo indica, el incidente queda asignado de inmediato." }],
       aceptar: "Abrir incidente",
     });
     if (!datos) return;
-    const ok = await intentar(() => api("/api/incidents", { method: "POST", body: { usuario: operador(), event_id: p.id, responsable: datos.responsable || null } }), "Incidente abierto");
+    const ok = await intentar(() => api("/api/incidents", { method: "POST", body: { event_id: p.id, responsable: datos.responsable || null } }), "Incidente abierto");
     if (ok) { cargar(); avisarMenu(); }
   }
 
@@ -75,6 +77,7 @@ export async function render(cont) {
     const resumen = el("div", {},
       etapas(inc.estado),
       el("p", {}, sevBadge(inc.severidad), "  ", chip(inc.estado), `  ·  Equipo: ${inc.equipo || "—"}  ·  Responsable: ${inc.responsable || "Sin asignar"}  ·  SLA: ${inc.sla_minutos} min`),
+      inc.componente ? el("div", { class: "aviso" }, el("strong", {}, "Componente afectado: "), `${inc.componente} (${inc.estado_componente}) en ${inc.equipo}`) : null,
       inc.evento ? el("div", {}, el("h2", {}, "Evento de origen"), el("pre", { class: "codigo" }, `#${inc.evento.id} (${inc.evento.origen})  ${inc.evento.mensaje_crudo}`)) : null,
       el("h2", { style: "margin-top:12px" }, "Historial"),
       el("ul", { class: "historial" }, inc.seguimiento.map((s) => el("li", {},
@@ -83,7 +86,7 @@ export async function render(cont) {
       cerrado ? el("div", { class: "aviso info" }, el("strong", {}, "Causa: "), inc.causa, el("br"), el("strong", {}, "Solución: "), inc.solucion) : null,
     );
 
-    if (cerrado) {
+    if (cerrado || !puede("operador")) {
       await formulario({ titulo: `INC-${inc.id} · ${inc.titulo}`, contenido: resumen, aceptar: "Cerrar ventana", cancelar: null });
       return;
     }
@@ -108,20 +111,20 @@ export async function render(cont) {
     let r;
     if (accion === "asignar") {
       const d = await formulario({ titulo: `Asignar responsable · INC-${inc.id}`, campos: [{ id: "responsable", etiqueta: "Responsable", valor: inc.responsable || "", requerido: true }], aceptar: "Asignar" });
-      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { usuario: operador(), responsable: d.responsable } }), "Responsable asignado");
+      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { responsable: d.responsable } }), "Responsable asignado");
     } else if (accion === "progreso") {
       const d = await formulario({ titulo: `Marcar en progreso · INC-${inc.id}`,
         campos: [{ id: "responsable", etiqueta: "Responsable", valor: inc.responsable || "", requerido: true }, { id: "nota", etiqueta: "Nota", tipo: "textarea", ayuda: "Opcional: qué se está haciendo." }],
         aceptar: "Guardar" });
-      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { usuario: operador(), responsable: d.responsable, estado: "en_progreso", nota: d.nota || null } }), "Incidente en progreso");
+      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { responsable: d.responsable, estado: "en_progreso", nota: d.nota || null } }), "Incidente en progreso");
     } else if (accion === "nota") {
       const d = await formulario({ titulo: `Nota de seguimiento · INC-${inc.id}`, campos: [{ id: "nota", etiqueta: "Nota", tipo: "textarea", requerido: true }], aceptar: "Agregar nota" });
-      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { usuario: operador(), nota: d.nota } }), "Nota agregada");
+      if (d) r = await intentar(() => api(url, { method: "PATCH", body: { nota: d.nota } }), "Nota agregada");
     } else if (accion === "cerrar") {
       const d = await formulario({ titulo: `Cerrar incidente · INC-${inc.id}`, descripcion: "Para cerrar se debe documentar la causa y la solución.",
         campos: [{ id: "causa", etiqueta: "Causa raíz", tipo: "textarea", requerido: true }, { id: "solucion", etiqueta: "Solución aplicada", tipo: "textarea", requerido: true }],
         aceptar: "Cerrar incidente" });
-      if (d) r = await intentar(() => api(`${url}/cerrar`, { method: "POST", body: { usuario: operador(), causa: d.causa, solucion: d.solucion } }), "Incidente cerrado");
+      if (d) r = await intentar(() => api(`${url}/cerrar`, { method: "POST", body: { causa: d.causa, solucion: d.solucion } }), "Incidente cerrado");
     }
     if (r) { cargar(); avisarMenu(); }
   }
@@ -130,6 +133,7 @@ export async function render(cont) {
   cont.replaceChildren(
     encabezado("Operación", "Incidentes",
       "Paso 1: revise los eventos graves que propone el sistema y decida si abre un incidente. Paso 2: asigne un responsable, registre el seguimiento y cierre documentando causa y solución."),
+    puede("operador") ? null : avisoRol("Puede consultar los incidentes, pero abrirlos y gestionarlos requiere el rol Operador."),
     el("section", { class: "panel" },
       el("h2", {}, "Eventos graves pendientes de revisión"),
       el("p", { class: "nota" }, "La política del sistema marca los eventos de severidad 0 a 2. Ningún incidente se crea sin una decisión humana."),
