@@ -14,9 +14,10 @@ from app.collector import ingest
 from app.collector.parser import FACILITIES, SEVERIDADES
 from app.database import get_db
 from app.models import Marca
+from app.security.auth import requiere
 from app.utils import normalizar_fecha
 
-router = APIRouter(prefix="/api/events", tags=["eventos"])
+router = APIRouter(prefix="/api/events", tags=["eventos"], dependencies=[Depends(requiere("lector"))])
 
 TAMANO_MAXIMO_ARCHIVO = 1_000_000  # 1 MB: evita que un archivo enorme bloquee el servidor
 
@@ -77,7 +78,7 @@ def listar(desde: str | None = Query(None, description="Fecha/hora inicial (ISO 
     return {"total": total, "eventos": [enriquecer(r) for r in rows]}
 
 
-@router.post("/importar")
+@router.post("/importar", dependencies=[Depends(requiere("operador"))])
 async def importar(archivo: UploadFile, conn: sqlite3.Connection = Depends(get_db)):
     """Importa un archivo de texto con un mensaje Syslog por línea."""
     contenido = await archivo.read(TAMANO_MAXIMO_ARCHIVO + 1)

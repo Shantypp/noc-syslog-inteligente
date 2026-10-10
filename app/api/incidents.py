@@ -19,9 +19,11 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.database import get_db
 from app.incidents.policy import SLA_MINUTOS, propuestas
+from app.security.auth import requiere
 from app.utils import ahora_utc, de_texto
 
-router = APIRouter(prefix="/api/incidents", tags=["incidentes"])
+router = APIRouter(prefix="/api/incidents", tags=["incidentes"], dependencies=[Depends(requiere("lector"))])
+ATIENDE = requiere("operador")  # abrir, gestionar y cerrar: operador o administrador
 
 AHORA_UTC = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"
 
@@ -33,7 +35,6 @@ class EstadoIncidente(str, Enum):
 
 
 class IncidenteNuevo(BaseModel):
-    usuario: str = Field(min_length=1, max_length=40, description="Quién crea el incidente")
     event_id: int | None = Field(None, description="Evento que lo origina (recomendado)")
     titulo: str | None = Field(None, max_length=150)
     severidad: int | None = Field(None, ge=0, le=7)
@@ -48,14 +49,12 @@ class IncidenteNuevo(BaseModel):
 
 
 class IncidenteCambio(BaseModel):
-    usuario: str = Field(min_length=1, max_length=40)
     responsable: str | None = Field(None, max_length=40)
     estado: EstadoIncidente | None = None
     nota: str | None = Field(None, max_length=500)
 
 
 class IncidenteCierre(BaseModel):
-    usuario: str = Field(min_length=1, max_length=40)
     causa: str = Field(min_length=3, max_length=500)
     solucion: str = Field(min_length=3, max_length=500)
 
@@ -78,8 +77,9 @@ def _con_sla(inc: dict) -> dict:
 
 def _buscar(conn, incident_id: int) -> dict:
     row = conn.execute(
-        "SELECT i.*, d.nombre AS equipo, d.marca FROM incidents i "
-        "LEFT JOIN devices d ON d.id = i.device_id WHERE i.id = ?", (incident_id,)).fetchone()
+        "SELECT i.*, d.nombre AS equipo, d.marca, e.componente, e.estado_componente FROM incidents i "
+        "LEFT JOIN devices d ON d.id = i.device_id LEFT JOIN events e ON e.id = i.event_id "
+        "WHERE i.id = ?", (incident_id,)).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No existe el incidente {incident_id}")
     return _con_sla(dict(row))
@@ -87,8 +87,8 @@ def _buscar(conn, incident_id: int) -> dict:
 
 @router.get("")
 def listar(estado: str | None = None, conn: sqlite3.Connection = Depends(get_db)):
-    sql = ("SELECT i.*, d.nombre AS equipo, d.marca FROM incidents i "
-           "LEFT JOIN devices d ON d.id = i.device_id")
+    sql = ("SELECT i.*, d.nombre AS equipo, d.marca, e.componente, e.estado_componente FROM incidents i "
+           "LEFT JOIN devices d ON d.id = i.device_id LEFT JOIN events e ON e.id = i.event_id")
     params = []
     if estado == "activos":
         sql += " WHERE i.estado != 'cerrado'"
@@ -117,7 +117,7 @@ def ver(incident_id: int, conn: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def crear(datos: IncidenteNuevo, conn: sqlite3.Connection = Depends(get_db)):
+def crear(datos: IncidenteNuevo, u: dict = Depends(ATIENDE), conn: sqlite3.Connection = Depends(get_db)):
     titulo, severidad, device_id = datos.titulo, datos.severidad, datos.device_id
     if datos.event_id is not None:
         ev = conn.execute("SELECT * FROM events WHERE id = ?", (datos.event_id,)).fetchone()
@@ -135,16 +135,16 @@ def crear(datos: IncidenteNuevo, conn: sqlite3.Connection = Depends(get_db)):
         "INSERT INTO incidents (event_id, device_id, titulo, severidad, estado, responsable) "
         "VALUES (?, ?, ?, ?, ?, ?)",
         (datos.event_id, device_id, titulo, severidad, estado, datos.responsable))
-    _registrar(conn, cur.lastrowid, datos.usuario, "creado",
+    _registrar(conn, cur.lastrowid, u["usuario"], "creado",
                f"desde evento {datos.event_id}" if datos.event_id else "manual")
     if datos.responsable:
-        _registrar(conn, cur.lastrowid, datos.usuario, "asignado", datos.responsable)
+        _registrar(conn, cur.lastrowid, u["usuario"], "asignado", datos.responsable)
     conn.commit()
     return _buscar(conn, cur.lastrowid)
 
 
 @router.patch("/{incident_id}")
-def actualizar(incident_id: int, datos: IncidenteCambio, conn: sqlite3.Connection = Depends(get_db)):
+def actualizar(incident_id: int, datos: IncidenteCambio, u: dict = Depends(ATIENDE), conn: sqlite3.Connection = Depends(get_db)):
     inc = _buscar(conn, incident_id)
     if inc["estado"] == "cerrado":
         raise HTTPException(409, "El incidente está cerrado; no se puede modificar")
@@ -161,23 +161,23 @@ def actualizar(incident_id: int, datos: IncidenteCambio, conn: sqlite3.Connectio
     conn.execute(f"UPDATE incidents SET responsable = ?, estado = ?, actualizado_en = {AHORA_UTC} "
                  "WHERE id = ?", (responsable, estado, incident_id))
     if datos.responsable is not None and datos.responsable != inc["responsable"]:
-        _registrar(conn, incident_id, datos.usuario, "asignado", datos.responsable)
+        _registrar(conn, incident_id, u["usuario"], "asignado", datos.responsable)
     if estado != inc["estado"]:
-        _registrar(conn, incident_id, datos.usuario, "estado", f"{inc['estado']} -> {estado}")
+        _registrar(conn, incident_id, u["usuario"], "estado", f"{inc['estado']} -> {estado}")
     if datos.nota:
-        _registrar(conn, incident_id, datos.usuario, "nota", datos.nota)
+        _registrar(conn, incident_id, u["usuario"], "nota", datos.nota)
     conn.commit()
     return ver(incident_id, conn)
 
 
 @router.post("/{incident_id}/cerrar")
-def cerrar(incident_id: int, datos: IncidenteCierre, conn: sqlite3.Connection = Depends(get_db)):
+def cerrar(incident_id: int, datos: IncidenteCierre, u: dict = Depends(ATIENDE), conn: sqlite3.Connection = Depends(get_db)):
     inc = _buscar(conn, incident_id)
     if inc["estado"] == "cerrado":
         raise HTTPException(409, "El incidente ya está cerrado")
     conn.execute(f"UPDATE incidents SET estado = 'cerrado', causa = ?, solucion = ?, "
                  f"cerrado_en = {AHORA_UTC}, actualizado_en = {AHORA_UTC} WHERE id = ?",
                  (datos.causa, datos.solucion, incident_id))
-    _registrar(conn, incident_id, datos.usuario, "cerrado", f"Causa: {datos.causa} | Solución: {datos.solucion}")
+    _registrar(conn, incident_id, u["usuario"], "cerrado", f"Causa: {datos.causa} | Solución: {datos.solucion}")
     conn.commit()
     return ver(incident_id, conn)

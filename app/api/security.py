@@ -18,9 +18,10 @@ from app.collector import ingest
 from app.console import audit
 from app.database import get_db
 from app.incidents.policy import UMBRAL_INCIDENTE
+from app.security.auth import requiere
 from app.security.controls import es_sospechoso, limpiar_mensaje
 
-router = APIRouter(prefix="/api/seguridad", tags=["seguridad IA"])
+router = APIRouter(prefix="/api/seguridad", tags=["seguridad IA"], dependencies=[Depends(requiere("lector"))])
 
 FLUJO = ["Evento detectado", "Validación", "Propuesta de acción", "Revisión humana",
          "Aprobación", "Ejecución autorizada", "Verificación", "Auditoría"]
@@ -43,6 +44,8 @@ def estado(conn: sqlite3.Connection = Depends(get_db)):
     fallos_login = uno("SELECT COUNT(*) FROM events WHERE mensaje LIKE '%LOGIN%FAIL%' OR mensaje LIKE '%login failed%'")
     total_eventos = uno("SELECT COUNT(*) FROM events")
     total_incidentes = uno("SELECT COUNT(*) FROM incidents")
+    usuarios = uno("SELECT COUNT(*) FROM users WHERE activo = 1")
+    fallidos = uno("SELECT COUNT(*) FROM auth_log WHERE exito = 0")
 
     def c(n, control, implementacion, evidencia, estado="activo"):
         return {"n": n, "control": control, "implementacion": implementacion, "evidencia": evidencia, "estado": estado}
@@ -65,14 +68,15 @@ def estado(conn: sqlite3.Connection = Depends(get_db)):
             c(7, "Listas permitidas de dispositivos y comandos", "Allowlist por marca/modo; denegar por defecto.",
               "4 perfiles: Cisco IOS XE, FortiGate, Huawei VRP, ROMMON"),
             c(8, "Roles, retención, integridad, respaldo, transporte seguro",
-              "Hash SHA-256 por registro de auditoría; respaldo con scripts/backup_db.py. RBAC y TLS en Corte 3.",
-              f"Integridad {integ['integros']}/{integ['total']}" + (f" · registros alterados: {integ['alterados']}" if integ['alterados'] else ""), "parcial"),
+              "Inicio de sesión con roles (lector, operador, administrador) y bloqueo tras 5 intentos fallidos; "
+              "hash SHA-256 por registro de auditoría; respaldo con scripts/backup_db.py. TLS y retención en Corte 3.",
+              f"{usuarios} usuarios · {fallidos} inicios de sesión fallidos · integridad {integ['integros']}/{integ['total']}" + (f" · registros alterados: {integ['alterados']}" if integ['alterados'] else ""), "parcial"),
             c(9, "Deduplicación, límite de frecuencia y tormentas",
               f"Ventana de {ingest.VENTANA_DEDUP} s y máximo {ingest.limitador_global.limite} mensajes/min.",
               f"{agrupados} mensajes repetidos agrupados · {est['limitado']} descartados por límite"),
             c(10, "Logs = datos no confiables", "Nunca se ejecutan ni se envían como instrucción; se muestran como texto; patrones de inyección se marcan.",
               f"{sospechosos} eventos sospechosos marcados (guardados como evidencia)"),
-            c(11, "Aprobación humana antes de cambios", "Separación de funciones: quien propone no aprueba. En el MVP la ejecución es simulada.",
+            c(11, "Aprobación humana antes de cambios", "Solo un administrador aprueba, y nunca su propia propuesta (identidad tomada del inicio de sesión). En el MVP la ejecución es simulada.",
               f"{pendientes} propuestas esperando revisión"),
         ],
         "configuracion": {

@@ -19,43 +19,43 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.console import audit
-from app.console.simulator import PERFILES, evaluar
+from app.console.simulator import PERFILES, evaluar, rol_minimo
 from app.database import get_db
+from app.security.auth import NOMBRE_ROL, requiere
 
-router = APIRouter(tags=["consola y auditoría"])
+router = APIRouter(tags=["consola y auditoría"], dependencies=[Depends(requiere("lector"))])
 
 
 class Comando(BaseModel):
     perfil: str = Field(examples=["cisco_ios"])
     comando: str = Field(max_length=500, examples=["show version"])
-    usuario: str = Field(min_length=1, max_length=40)
     device_id: int | None = None
 
 
 class Revision(BaseModel):
-    usuario: str = Field(min_length=1, max_length=40, description="Quién revisa (no puede ser quien propuso)")
     motivo: str | None = Field(None, max_length=300)
 
 
 @router.get("/api/console/perfiles")
 def perfiles():
     return [{"id": k, "nombre": p["nombre"], "marca": p["marca"], "prompt": p["prompt"],
-             "permitidos": list(p["permitidos"])} for k, p in PERFILES.items()]
+             "permitidos": [{"comando": c, "rol_minimo": rol_minimo(c), "rol_nombre": NOMBRE_ROL[rol_minimo(c)]}
+                            for c in p["permitidos"]]} for k, p in PERFILES.items()]
 
 
 @router.post("/api/console/ejecutar")
-def ejecutar(datos: Comando, conn: sqlite3.Connection = Depends(get_db)):
+def ejecutar(datos: Comando, u: dict = Depends(requiere("lector")), conn: sqlite3.Connection = Depends(get_db)):
     if datos.perfil not in PERFILES:
         raise HTTPException(422, f"Perfil desconocido. Opciones: {', '.join(PERFILES)}")
     if datos.device_id is not None and not conn.execute(
             "SELECT 1 FROM devices WHERE id = ?", (datos.device_id,)).fetchone():
         raise HTTPException(404, "El equipo no existe en el inventario")
 
-    r = evaluar(datos.perfil, datos.comando)
+    r = evaluar(datos.perfil, datos.comando, u["rol"])  # la decisión depende del rol de la sesión
     resultado = {"PERMITIDO": "Salida simulada mostrada",
                  "PROPUESTA": audit.PENDIENTE}.get(r["decision"], r["motivo"])
     # Se audita lo que el usuario escribió (recortado), no la versión normalizada
-    r["audit_id"] = audit.registrar(conn, datos.usuario, datos.device_id,
+    r["audit_id"] = audit.registrar(conn, u["usuario"], datos.device_id,
                                     datos.comando.strip()[:200], r["decision"], resultado)
     return r
 
@@ -101,18 +101,21 @@ def integridad(conn: sqlite3.Connection = Depends(get_db)):
     return audit.verificar_integridad(conn)
 
 
-def _decidir(audit_id: int, datos: Revision, aprobar: bool, conn) -> dict:
+def _decidir(audit_id: int, datos: Revision, aprobar: bool, revisor: dict, conn) -> dict:
     try:
-        return audit.decidir(conn, audit_id, datos.usuario, aprobar, datos.motivo or "")
+        return audit.decidir(conn, audit_id, revisor["usuario"], aprobar, datos.motivo or "")
     except audit.DecisionInvalida as e:
         raise HTTPException(409, str(e))
 
 
 @router.post("/api/auditoria/{audit_id}/aprobar")
-def aprobar(audit_id: int, datos: Revision, conn: sqlite3.Connection = Depends(get_db)):
-    return _decidir(audit_id, datos, True, conn)
+def aprobar(audit_id: int, datos: Revision, u: dict = Depends(requiere("administrador")),
+            conn: sqlite3.Connection = Depends(get_db)):
+    """Solo un administrador aplica cambios, y nunca los que él mismo propuso."""
+    return _decidir(audit_id, datos, True, u, conn)
 
 
 @router.post("/api/auditoria/{audit_id}/rechazar")
-def rechazar(audit_id: int, datos: Revision, conn: sqlite3.Connection = Depends(get_db)):
-    return _decidir(audit_id, datos, False, conn)
+def rechazar(audit_id: int, datos: Revision, u: dict = Depends(requiere("administrador")),
+             conn: sqlite3.Connection = Depends(get_db)):
+    return _decidir(audit_id, datos, False, u, conn)
