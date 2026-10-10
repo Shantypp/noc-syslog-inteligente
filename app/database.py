@@ -7,6 +7,9 @@ Tablas (ver docs / vault "Modelo de datos"):
   - incidents      : incidentes abiertos a partir de eventos
   - incident_log   : seguimiento de cada incidente (quién cambió qué y cuándo)
   - command_audit  : bitácora de comandos de la consola (quién, qué, cuándo, resultado)
+  - users          : usuarios con rol (lector, operador, administrador) y contraseña cifrada
+  - sessions       : sesiones activas (solo se guarda la huella del token, nunca el token)
+  - auth_log       : intentos de inicio de sesión (exitosos y fallidos)
 
 Ejecutar directamente para crear la base de datos:
     python -m app.database
@@ -76,7 +79,9 @@ CREATE TABLE IF NOT EXISTS events (
     hash_dedup        TEXT,                       -- huella para agrupar repetidos
     repeticiones      INTEGER NOT NULL DEFAULT 1,
     sospechoso        INTEGER NOT NULL DEFAULT 0 CHECK (sospechoso IN (0, 1)),  -- posible inyección
-    origen            TEXT    NOT NULL DEFAULT 'simulado' CHECK (origen IN ('simulado', 'real'))
+    origen            TEXT    NOT NULL DEFAULT 'simulado' CHECK (origen IN ('simulado', 'real')),
+    componente        TEXT,                       -- parte del equipo afectada (ej. GigabitEthernet0/1)
+    estado_componente TEXT                        -- estado de esa parte (Caído, Arriba, Falla...)
 );
 
 -- Índices: aceleran los filtros del dashboard (RNF-07 rendimiento)
@@ -132,13 +137,53 @@ CREATE TABLE IF NOT EXISTS command_audit (
     hash_evidencia  TEXT,                         -- SHA-256 para detectar alteraciones
     fecha           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+-- ---------------------------------------------------------------
+-- Usuarios, roles y sesiones (control de acceso por rol: RBAC)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    nombre          TEXT    NOT NULL,
+    rol             TEXT    NOT NULL CHECK (rol IN ('lector', 'operador', 'administrador')),
+    clave_hash      TEXT    NOT NULL,             -- PBKDF2-SHA256 con sal: nunca la contraseña
+    activo          INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+    creado_en       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash      TEXT    PRIMARY KEY,          -- SHA-256 del token de la cookie
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    creada_en       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    expira_en       TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario         TEXT    NOT NULL,
+    ip              TEXT,
+    exito           INTEGER NOT NULL CHECK (exito IN (0, 1)),
+    detalle         TEXT,
+    fecha           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_auth_log ON auth_log(usuario, fecha);
 """
+
+# Columnas agregadas después de la primera versión. Si la base de datos ya existía,
+# se añaden sin borrar datos (migración simple).
+COLUMNAS_NUEVAS = {"events": ["componente TEXT", "estado_componente TEXT"]}
 
 
 def init_db(db_path: str | None = None) -> None:
     """Crea todas las tablas e índices si todavía no existen."""
     with get_connection(db_path) as conn:
         conn.executescript(SCHEMA)
+        for tabla, columnas in COLUMNAS_NUEVAS.items():
+            existentes = {r["name"] for r in conn.execute(f"PRAGMA table_info({tabla})")}
+            for col in columnas:
+                if col.split()[0] not in existentes:
+                    conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col}")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_events_componente ON events(device_id, componente)")
 
 
 def get_db():
