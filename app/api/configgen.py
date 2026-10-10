@@ -5,12 +5,13 @@ api/configgen.py — Generador de configuraciones Syslog (RF-06, HU-04).
     GET /api/configgen            genera la plantilla comentada
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.configgen.templates import (FACILITIES, INFO, UMBRALES, Fabricante,
                                      ParametroInvalido, generar)
+from app.security.auth import requiere
 
-router = APIRouter(prefix="/api/configgen", tags=["configuraciones"])
+router = APIRouter(prefix="/api/configgen", tags=["configuraciones"], dependencies=[Depends(requiere("lector"))])
 
 
 @router.get("/opciones")

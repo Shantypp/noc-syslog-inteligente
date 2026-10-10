@@ -69,7 +69,7 @@ def test_todo_comando_queda_auditado(client):
         client.post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": cmd, "usuario": "ana"})
     filas = client.get("/api/auditoria").json()
     assert [f["decision"] for f in filas] == ["PROPUESTA", "BLOQUEADO", "PERMITIDO"]
-    assert all(f["usuario"] == "ana" and f["fecha"] and f["hash_evidencia"] for f in filas)
+    assert all(f["usuario"] == "admin1" and f["fecha"] and f["hash_evidencia"] for f in filas)
 
 
 # ---------- Revisión humana y auditoría (HU-05) ----------
@@ -85,14 +85,15 @@ def test_quien_propone_no_puede_aprobar(client):
     assert r.status_code == 409
 
 
-def test_aprobacion_por_otro_usuario_queda_registrada(client):
-    audit_id = _proponer(client, "ana")
-    r = client.post(f"/api/auditoria/{audit_id}/aprobar", json={"usuario": "supervisor"})
+def test_aprobacion_por_otro_usuario_queda_registrada(client, como):
+    audit_id = _proponer(client)
+    otro_admin = como("admin2")
+    r = otro_admin.post(f"/api/auditoria/{audit_id}/aprobar", json={})
     assert r.status_code == 200
-    assert r.json()["aprobado_por"] == "supervisor"
+    assert r.json()["aprobado_por"] == "admin2"
     assert "SIMULADA" in r.json()["resultado"]
     # No se puede decidir dos veces
-    assert client.post(f"/api/auditoria/{audit_id}/rechazar", json={"usuario": "otro"}).status_code == 409
+    assert otro_admin.post(f"/api/auditoria/{audit_id}/rechazar", json={}).status_code == 409
 
 
 def test_alterar_un_registro_se_detecta(client, tmp_path):

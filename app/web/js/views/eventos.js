@@ -3,7 +3,7 @@
  * Filtros: fecha desde/hasta, marca, equipo y rango de severidad. El total se actualiza.
  */
 import { api, subirArchivo } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, intentar, operador, aviso, encabezado, formulario, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, intentar, aviso, encabezado, formulario, componente, puede, SEVERIDADES, montar } from "../ui.js";
 
 export const titulo = "Eventos";
 export const icono = "eventos";
@@ -49,25 +49,26 @@ export async function render(cont) {
       { titulo: "Recibido", valor: (e) => fecha(e.recibido_en), clase: "num" },
       { titulo: "Equipo", valor: (e) => [e.equipo || "—", el("br"), el("small", {}, e.marca || "")], clase: "nowrap" },
       { titulo: "Severidad", valor: (e) => sevBadge(e.severidad) },
+      { titulo: "Componente", valor: componente },
       { titulo: "Facility", valor: (e) => `${e.facility} · ${e.facility_nombre}`, clase: "num" },
       { titulo: "Mensaje", clase: "mensaje", valor: (e) => [e.sospechoso ? el("span", { class: "marca-sospechoso" }, "SOSPECHOSO") : null, e.mensaje, e.repeticiones > 1 ? ` (×${e.repeticiones})` : null] },
       { titulo: "Origen", valor: (e) => chip(e.origen) },
       { titulo: "Incidente", valor: (e) => e.incident_id
           ? el("a", { href: "#incidentes" }, `INC-${e.incident_id}`)
-          : el("button", { class: "pequeno secundario", onclick: () => abrirIncidente(e) }, "Abrir incidente") },
+          : puede("operador") ? el("button", { class: "pequeno secundario", onclick: () => abrirIncidente(e) }, "Abrir incidente") : "—" },
     ], r.eventos, "Ningún evento cumple el filtro."));
   }
 
   async function abrirIncidente(e) {
     const datos = await formulario({
       titulo: `Abrir incidente para el evento ${e.id}`,
-      descripcion: `${e.equipo || "Equipo"} · severidad ${e.severidad} (${SEVERIDADES[e.severidad]})`,
+      descripcion: `${e.equipo || "Equipo"} · severidad ${e.severidad} (${SEVERIDADES[e.severidad]})${e.componente ? ` · componente: ${e.componente} (${e.estado_componente})` : ""}`,
       campos: [{ id: "responsable", etiqueta: "Responsable", ayuda: "Opcional. Si lo indica, el incidente queda asignado." }],
       aceptar: "Abrir incidente",
     });
     if (!datos) return;
     const inc = await intentar(() => api("/api/incidents", {
-      method: "POST", body: { usuario: operador(), event_id: e.id, responsable: datos.responsable || null },
+      method: "POST", body: { event_id: e.id, responsable: datos.responsable || null },
     }), "Incidente abierto");
     if (inc) { buscar(); window.dispatchEvent(new Event("noc:actualizar-menu")); }
   }
@@ -89,7 +90,7 @@ export async function render(cont) {
     buscar();
   }
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Operación", "Eventos",
       "Mensajes Syslog recibidos, clasificados por equipo, fabricante, fecha, facility y severidad. Los mensajes se muestran siempre como texto: nunca se ejecutan."),
     el("section", { class: "panel" },
@@ -101,7 +102,7 @@ export async function render(cont) {
         el("label", { class: "check" }, f.sospechosos, "Solo sospechosos"),
         el("div", { class: "acciones" }, el("button", { onclick: buscar }, "Aplicar filtros"), el("button", { class: "secundario", onclick: limpiar }, "Limpiar"))),
       total, resultado),
-    el("section", { class: "panel" }, el("h2", {}, "Importar eventos desde archivo"),
+    !puede("operador") ? null : el("section", { class: "panel" }, el("h2", {}, "Importar eventos desde archivo"),
       el("p", { class: "nota" }, "Archivo de texto con un mensaje Syslog por línea. Ejemplo incluido: data/muestras_simuladas.log (datos simulados)."),
       el("div", { class: "filtros" }, archivo, el("button", { class: "secundario", onclick: importar }, "Importar archivo"))),
   );

@@ -72,3 +72,5 @@ sequenceDiagram
 | 003 | La política propone, el humano decide | Flujo seguro obligatorio; evita escalada autónoma |
 | 004 | Receptor en 127.0.0.1:5514 por defecto | Laboratorio seguro sin permisos de administrador |
 | 005 | Validación de comandos en el backend | En el navegador se puede saltar con F12 |
+| 006 | Identidad desde la sesión (cookie HttpOnly) y permisos por rol en el servidor | Un nombre escrito en pantalla se puede falsificar |
+| 007 | Componente afectado por reglas de texto por fabricante | Sin acceso a los equipos, el log es la única fuente; se limita a caracteres seguros |

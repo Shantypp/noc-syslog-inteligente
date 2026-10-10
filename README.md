@@ -27,6 +27,8 @@ Una red con equipos de varios fabricantes (Cisco, Fortinet, Huawei) produce even
 | 8 | Consola tipo PuTTY **simulada** de solo lectura con allowlist, bloqueos y modos (ROMMON) | RF-07 | Consola de equipos |
 | 9 | Auditoría con hash SHA-256, revisión humana de propuestas y exportación CSV | RF-08 | Auditoría |
 | 10 | Política de defensa frente a agentes de IA con evidencia en vivo | RNF-09 | Política de seguridad |
+| 11 | **Inicio de sesión por usuario** y **roles** (lector, operador, administrador) que definen qué puede ver, atender y qué comandos puede aplicar | RF-10 | Usuarios |
+| 12 | **Puertos y componentes**: identifica qué parte del equipo genera el problema (puerto, fuente de poder, sensor, túnel VPN, clúster HA) | RF-11 | Puertos y componentes |
 
 ## Arquitectura
 
@@ -65,7 +67,8 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env                # Linux/macOS: cp .env.example .env
-python -m app.seed                    # carga 3 equipos SIMULADOS
+# Edite .env y escriba una contraseña propia en NOC_CLAVE_INICIAL (mínimo 8 caracteres)
+python -m app.seed                    # carga 3 equipos SIMULADOS y 4 usuarios de laboratorio
 ```
 
 > Si PowerShell bloquea la activación: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
@@ -82,6 +85,8 @@ python -m app.seed                    # carga 3 equipos SIMULADOS
 | `RATE_LIMIT_PER_MINUTE` | `300` | Máximo de mensajes por minuto |
 | `INCIDENT_MAX_SEVERITY` | `2` | Severidad que genera propuesta de incidente |
 | `NO_COMM_MINUTES` | `10` | Minutos sin eventos para "sin comunicación" |
+| `NOC_CLAVE_INICIAL` | *(vacío)* | Contraseña inicial de los usuarios de laboratorio que crea `app.seed` |
+| `NOC_COOKIE_SEGURA` | `0` | `1` si se publica con HTTPS (la cookie de sesión solo viaja cifrada) |
 
 El archivo `.env` **nunca** se sube a GitHub (está en `.gitignore`).
 
@@ -104,13 +109,31 @@ python scripts/enviar_syslog_prueba.py --puerto 5599 # si el colector usa otro p
 
 La interfaz está organizada en el orden de trabajo del operador: **Operación** (panel general, eventos, incidentes) → **Administración** (inventario, plantillas) → **Control de cambios** (consola, auditoría) → **Cumplimiento** (política de seguridad). El panel general muestra los 4 pasos del flujo y cuántas tareas hay pendientes en cada uno.
 
+## Usuarios y roles
+
+Cada persona entra con su usuario. Lo que puede hacer depende de su **rol**, y el servidor lo verifica en cada acción (no solo la pantalla):
+
+| Rol | Puede |
+|---|---|
+| **Lector** | Ver todo. Consola: solo consultas básicas (`show version`, `show ip interface brief`) |
+| **Operador** | Lo anterior + abrir, gestionar y cerrar incidentes, importar eventos, consultas de configuración de logs y **proponer** cambios |
+| **Administrador** | Todo + inventario, usuarios y **aprobar o rechazar** cambios propuestos por *otro* usuario |
+
+Usuarios de laboratorio que crea `python -m app.seed` (contraseña inicial: la de `NOC_CLAVE_INICIAL` en su `.env`):
+`jpachon` (administrador), `supervisor` (administrador), `operador` (operador), `consulta` (lector).
+
+- Cambiar la propia contraseña: botón **Cambiar contraseña** arriba a la derecha.
+- Crear usuarios o cambiar roles: pantalla **Usuarios** (administrador).
+- Desde la terminal: `python -m app.usuarios listar` · `python -m app.usuarios clave USUARIO` · `python -m app.usuarios crear USUARIO --nombre "..." --rol operador`
+- Tras 5 intentos fallidos en 15 minutos, la cuenta se bloquea temporalmente.
+
 ## Pruebas
 
 ```powershell
 pytest -v
 ```
 
-82 pruebas automáticas: parser, inventario, ingreso, filtros, panel general, incidentes, configuraciones, consola, auditoría e IA. Ver [docs/pruebas.md](docs/pruebas.md).
+110 pruebas automáticas: inicio de sesión y roles, puertos y componentes, parser, inventario, ingreso, filtros, panel general, incidentes, configuraciones, consola, auditoría e IA. Ver [docs/pruebas.md](docs/pruebas.md).
 
 ## Respaldo y recuperación
 
@@ -125,6 +148,8 @@ Rollback de código: cada versión tiene etiqueta (`git switch --detach v0.1.0`)
 ## Seguridad
 
 - Secretos fuera del código (`.env`), nunca en GitHub.
+- Inicio de sesión: contraseñas cifradas con PBKDF2-SHA256 y sal; sesión en cookie HttpOnly; bloqueo tras 5 intentos fallidos.
+- Control de acceso por rol en el servidor; la identidad de quien actúa sale de la sesión, nunca de lo que envía el navegador.
 - **Los logs son datos no confiables**: se guardan y muestran como texto (`textContent`), nunca se ejecutan ni se usan como instrucciones para una IA. Los intentos de inyección se marcan como *sospechosos*.
 - Solo se aceptan eventos de equipos inventariados; deduplicación y límite por minuto contra tormentas.
 - Consola: denegar por defecto, sin conexión real; los cambios quedan como **propuesta** que otra persona debe aprobar.
@@ -135,7 +160,8 @@ Política completa: [docs/politica-ia.md](docs/politica-ia.md).
 ## Limitaciones conocidas (v0.2.0)
 
 - Datos y equipos **simulados**; la consola no se conecta por SSH (previsto para v1.0.0 con backend autorizado).
-- Sin inicio de sesión: el operador escribe su nombre (RBAC previsto para v1.0.0).
+- En laboratorio la aplicación usa HTTP; en producción debe publicarse con HTTPS (`NOC_COOKIE_SEGURA=1`).
+- La identificación de puertos y componentes se basa en patrones de texto de los mensajes de cada fabricante.
 - UDP sin cifrado ni autenticación del origen; TLS (RFC 5425) cuando los equipos lo soporten.
 - Alertas por Telegram previstas para v1.0.0.
 
@@ -147,8 +173,8 @@ app/
 ├── database.py        SQLite y modelo de datos
 ├── models.py          validaciones (Pydantic)
 ├── api/               endpoints REST
-├── collector/         parser, receptor UDP, ingreso
-├── security/          controles (allowlist, dedup, rate limit, sospechosos)
+├── collector/         parser, receptor UDP, ingreso y componentes afectados
+├── security/          controles (allowlist, dedup, rate limit, sospechosos) e inicio de sesión/roles
 ├── incidents/         política: severidad -> propuesta, SLA
 ├── configgen/         plantillas Cisco / Fortinet / Huawei
 ├── console/           consola simulada y auditoría

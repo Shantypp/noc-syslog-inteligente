@@ -22,7 +22,7 @@ UMBRAL_SIN_COMUNICACION_MIN = int(os.getenv("NO_COMM_MINUTES", "10"))
 def propuestas(conn: sqlite3.Connection, limite: int = 50) -> list[dict]:
     """Eventos graves que todavía no tienen incidente: esperan revisión humana."""
     rows = conn.execute(
-        "SELECT e.id, e.recibido_en, e.severidad, e.mensaje, e.sospechoso, e.repeticiones, "
+        "SELECT e.id, e.recibido_en, e.severidad, e.mensaje, e.sospechoso, e.repeticiones, e.componente, e.estado_componente, "
         "d.nombre AS equipo, d.marca FROM events e "
         "LEFT JOIN devices d ON d.id = e.device_id "
         "WHERE e.severidad <= ? AND NOT EXISTS (SELECT 1 FROM incidents i WHERE i.event_id = e.id) "

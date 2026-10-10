@@ -14,8 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.database import get_db
 from app.models import Device, DeviceIn, EstadoDevice, Marca
+from app.security.auth import requiere
 
-router = APIRouter(prefix="/api/devices", tags=["inventario"])
+router = APIRouter(prefix="/api/devices", tags=["inventario"], dependencies=[Depends(requiere("lector"))])
+SOLO_ADMIN = [Depends(requiere("administrador"))]  # modificar el inventario
 
 # Hora actual en UTC con el mismo formato que usa la tabla.
 AHORA_UTC = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"
@@ -54,7 +56,7 @@ def ver(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
     return _buscar(conn, device_id)
 
 
-@router.post("", response_model=Device, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Device, status_code=status.HTTP_201_CREATED, dependencies=SOLO_ADMIN)
 def crear(datos: DeviceIn, conn: sqlite3.Connection = Depends(get_db)):
     try:
         cur = conn.execute(
@@ -69,7 +71,7 @@ def crear(datos: DeviceIn, conn: sqlite3.Connection = Depends(get_db)):
     return _buscar(conn, cur.lastrowid)
 
 
-@router.put("/{device_id}", response_model=Device)
+@router.put("/{device_id}", response_model=Device, dependencies=SOLO_ADMIN)
 def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(get_db)):
     _buscar(conn, device_id)  # 404 si no existe
     try:
@@ -85,7 +87,7 @@ def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(g
     return _buscar(conn, device_id)
 
 
-@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=SOLO_ADMIN)
 def eliminar(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
     _buscar(conn, device_id)  # 404 si no existe
     conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))

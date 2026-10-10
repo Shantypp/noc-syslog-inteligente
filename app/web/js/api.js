@@ -32,6 +32,7 @@ export async function api(ruta, { method = "GET", body, query } = {}) {
   });
   if (resp.status === 204) return null;
   const data = await resp.json().catch(() => null);
+  if (resp.status === 401 && !ruta.startsWith("/api/auth/")) window.dispatchEvent(new Event("noc:sesion-vencida"));
   if (!resp.ok) throw new Error(textoError(data, resp.status));
   return data;
 }

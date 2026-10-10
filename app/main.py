@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import configgen, console, dashboard, devices, events, incidents, security
+from app.api import auth, configgen, console, dashboard, devices, events, incidents, puertos, security, usuarios
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import init_db
 
@@ -45,8 +45,11 @@ app = FastAPI(
 )
 
 # Registro de módulos de la API
+app.include_router(auth.router)
+app.include_router(usuarios.router)
 app.include_router(devices.router)
 app.include_router(events.router)
+app.include_router(puertos.router)
 app.include_router(incidents.router)
 app.include_router(dashboard.router)
 app.include_router(configgen.router)

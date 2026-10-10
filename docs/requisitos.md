@@ -33,18 +33,20 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | RF-06 | Generar configuraciones Syslog comentadas por fabricante | M | Usa IP y umbral elegidos, comentarios, advertencia de versión, verificación y reversa | HU-04 | `test_configgen_console.py` | ✅ |
 | RF-07 | Terminal segura simulada | M | `show version` permitido; `reload` bloqueado; `configure terminal` = propuesta; IOS en ROMMON = no verificado | HU-05 | `test_configgen_console.py` | ✅ |
 | RF-08 | Auditoría y exportación de evidencia | M | Todo comando con usuario, fecha, equipo, decisión, hash; CSV exportable; integridad verificable | HU-05 | `test_configgen_console.py` | ✅ |
+| RF-10 | Inicio de sesión por usuario y permisos por rol (lector, operador, administrador), incluidos los comandos que cada rol puede aplicar | M | Sin sesión → 401; acción de rol insuficiente → 403; lector no propone cambios; solo un administrador aprueba, y no lo suyo | HU-09, HU-10 | `test_auth_roles.py` | ✅ |
+| RF-11 | Identificar qué parte del equipo genera el problema (puerto, fuente, sensor, túnel, clúster) | M | `Interface Gi0/2 ... down` → GigabitEthernet0/2 · Caído; el panel muestra "dónde está el problema" | HU-11 | `test_puertos.py` | ✅ |
 | RF-09 | Notificación por Telegram | W | Una alerta por incidente, token enmascarado, sin inundar | — | — | ⏳ |
 
 ## Requisitos no funcionales
 
 | ID | Atributo | Requisito | Cómo se cumple | Estado |
 |---|---|---|---|---|
-| RNF-01 | Seguridad | Secretos fuera del código | `.env` + `.gitignore`; `.env.example` sin valores | ✅ |
+| RNF-01 | Seguridad | Secretos fuera del código | `.env` + `.gitignore`; `.env.example` sin valores; contraseñas cifradas (PBKDF2) | ✅ |
 | RNF-02 | Usabilidad | Navegación comprensible | Menú lateral, colores por severidad, textos en español, ayudas por pantalla | ✅ |
 | RNF-03 | Trazabilidad | Cada evento/acción con fecha y actor | `recibido_en`, `incident_log`, `command_audit` con usuario y fecha | ✅ |
 | RNF-04 | Confiabilidad | Errores controlados y bitácora | Validaciones (422/404/409), el receptor UDP no cae ante mensajes malos, `logging` | ✅ |
 | RNF-05 | Portabilidad | Instalación desde cero | README con pasos exactos; `requirements.txt` | ✅ |
-| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 82 pruebas | ✅ |
+| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 110 pruebas | ✅ |
 | RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación (máx. 500), deduplicación y rate limit | ✅ |
 | RNF-08 | Recuperación | Copia y rollback | `scripts/backup_db.py` (respaldo/restauración) y tags de Git | ✅ |
 | RNF-09 | Seguridad IA | Logs nunca como instrucciones | Ver [politica-ia.md](politica-ia.md) | ✅ |

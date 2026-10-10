@@ -9,6 +9,9 @@ Formato basado en *Keep a Changelog*. Versiones según el plan del curso.
 - Panel general con el flujo de trabajo del operador en 4 pasos y contadores de tareas pendientes en el menú.
 - Formularios propios (registrar equipo, abrir/gestionar/cerrar incidente, aprobar/rechazar cambios) en lugar de las ventanas del navegador.
 - Opción `--puerto` en el generador de Syslog de prueba.
+- Inicio de sesión por usuario (contraseñas PBKDF2, cookie HttpOnly, bloqueo tras 5 intentos) y gestión de usuarios.
+- Permisos por rol (lector, operador, administrador) en toda la API y en la consola: cada rol tiene sus comandos permitidos; el lector no propone cambios; solo un administrador distinto aprueba.
+- Puertos y componentes: identifica qué parte del equipo genera el problema y lo muestra en eventos, incidentes y panel general.
 - Filtros de eventos por fecha, marca, equipo y severidad con conteo total.
 - Política de incidentes: eventos 0–2 generan propuesta; creación, asignación, seguimiento (incident_log), SLA y cierre con causa/solución.
 - Estado "sin comunicación" por equipo según el último evento (HU-01).

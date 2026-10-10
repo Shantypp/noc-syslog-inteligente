@@ -31,10 +31,10 @@ Evento detectado → Validación → Propuesta de acción → Revisión humana �
 | 5 | Accesos, fallos de autenticación, cambios | Clasificados y filtrables (LOGIN_FAILED, CONFIG_I, CMDRECORD) | Eventos | dataset de muestras |
 | 6 | Comandos no autorizados | Toda entrada de consola se audita con su decisión | `console/` | `test_todo_comando_queda_auditado` |
 | 7 | Listas permitidas | Allowlist por marca y modo, denegar por defecto, sin encadenamiento | `console/simulator.py` | `test_decisiones_de_la_consola` |
-| 8 | Integridad, respaldo, retención, RBAC, transporte | Hash SHA-256 + verificación; `backup_db.py`. RBAC/TLS en v1.0.0 | `console/audit.py` | `test_alterar_un_registro_se_detecta` |
+| 8 | Integridad, respaldo, retención, RBAC, transporte | Inicio de sesión con roles (lector, operador, administrador) y bloqueo tras 5 intentos; hash SHA-256 + verificación; `backup_db.py`. TLS y retención en v1.0.0 | `security/auth.py`, `console/audit.py` | `test_lector_solo_consulta`, `test_alterar_un_registro_se_detecta` |
 | 9 | Dedup, rate limit, tormentas | Ventana 60 s, máx. 300/min | `security/controls.py` | `test_tormenta_se_deduplica`, `test_rate_limit_descarta_el_exceso` |
 | 10 | Logs = datos no confiables | Texto limpio, `textContent` en la UI, patrones de inyección → `sospechoso` | `security/`, `web/js/ui.js` | `test_inyeccion_de_prompt_se_marca_y_no_ejecuta_nada`, `test_xss_en_un_log_se_guarda_como_texto` |
-| 11 | Aprobación humana | Propuesta → otra persona aprueba/rechaza; ejecución simulada | `console/audit.py` | `test_quien_propone_no_puede_aprobar` |
+| 11 | Aprobación humana | Propuesta → un **administrador distinto** aprueba/rechaza; la identidad sale del inicio de sesión; ejecución simulada | `console/audit.py`, `api/console.py` | `test_quien_propone_no_puede_aprobar`, `test_administrador_aplica_cambios_de_otro` |
 
 ## 5. Riesgos y controles
 
@@ -47,6 +47,8 @@ Evento detectado → Validación → Propuesta de acción → Revisión humana �
 | Escalada autónoma | Una alerta convertida en cambio | Propuesta separada de aprobación; quien propone no aprueba | Sin aprobación no hay ejecución |
 | Denegación por eventos | 500 mensajes iguales | Dedup + rate limit | 1 evento con contador |
 | XSS por logs | `<script>` dentro de un mensaje | `textContent`, nunca `innerHTML` | Se muestra como texto |
+| Suplantación de identidad | Escribir el nombre de un supervisor para aprobar | Inicio de sesión; identidad tomada de la sesión | Se ignora el nombre enviado |
+| Fuerza bruta contra el login | Probar contraseñas en serie | Bloqueo tras 5 intentos en 15 min | 429 y registro del intento |
 
 ## 6. Política Syslog mínima
 
@@ -61,7 +63,7 @@ Evento detectado → Validación → Propuesta de acción → Revisión humana �
 
 ## 7. Limitaciones
 
-UDP sin cifrado ni autenticación (una IP se puede falsificar); usuario sin inicio de sesión; detección de inyección basada en patrones (puede haber falsos positivos y negativos: por eso marca y no borra, y la defensa principal es que **nada** se ejecuta a partir de un log).
+UDP sin cifrado ni autenticación (una IP se puede falsificar); en laboratorio la sesión viaja por HTTP (en producción, HTTPS); detección de inyección basada en patrones (puede haber falsos positivos y negativos: por eso marca y no borra, y la defensa principal es que **nada** se ejecuta a partir de un log).
 
 ## Referencias
 

@@ -3,7 +3,7 @@
  * Solo los equipos registrados aquí pueden enviar Syslog (lista permitida de fuentes).
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar, puede, avisoRol, montar } from "../ui.js";
 
 export const titulo = "Inventario de equipos";
 export const icono = "inventario";
@@ -56,16 +56,17 @@ export async function render(cont) {
       { titulo: "Estado", valor: (d) => chip(d.estado) },
       { titulo: "Origen", valor: (d) => chip(d.origen) },
       { titulo: "Actualizado", valor: (d) => fecha(d.actualizado_en), clase: "num" },
-      { titulo: "", valor: (d) => el("div", { class: "acciones" },
+      { titulo: "", valor: (d) => !puede("administrador") ? "" : el("div", { class: "acciones" },
           el("button", { class: "pequeno secundario", onclick: () => guardar(d) }, "Editar"),
           el("button", { class: "pequeno peligro", onclick: () => eliminar(d) }, "Eliminar")) },
     ], equipos, "No hay equipos registrados. Use el botón Registrar equipo o ejecute: python -m app.seed"));
   }
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Administración", "Inventario de equipos",
       "Equipos de red autorizados. Solo los equipos registrados aquí pueden enviar eventos al NOC (lista permitida de fuentes).",
-      el("button", { onclick: () => guardar(null) }, "Registrar equipo")),
+      puede("administrador") ? el("button", { onclick: () => guardar(null) }, "Registrar equipo") : null),
+    puede("administrador") ? null : avisoRol("Puede consultar el inventario; registrar, editar o eliminar equipos requiere el rol Administrador."),
     el("section", { class: "panel" }, lista),
   );
   await cargar();

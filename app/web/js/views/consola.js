@@ -5,7 +5,7 @@
  * Si estuviera solo en JavaScript, cualquiera podría saltársela con F12.
  */
 import { api } from "../api.js";
-import { el, operador, encabezado, chip } from "../ui.js";
+import { el, encabezado, chip, sesion, montar } from "../ui.js";
 
 export const titulo = "Consola de equipos";
 export const icono = "consola";
@@ -25,6 +25,7 @@ export async function render(cont) {
   const permitidos = el("ul", { class: "lista-comandos" });
   const historial = [];
   let posHistorial = 0;
+  let perfilAnterior = null; // para no repetir el aviso si el perfil no cambió
 
   const escribir = (texto, clase) => {
     salida.append(el("div", { class: clase }, texto));
@@ -35,8 +36,14 @@ export async function render(cont) {
     const p = porId[selPerfil.value];
     prompt.textContent = p.prompt;
     // Clic en un comando permitido = se escribe en la consola (más fácil de usar)
-    permitidos.replaceChildren(...p.permitidos.map((c) => el("li", {}, el("button", { type: "button", onclick: () => { entrada.value = c; entrada.focus(); } }, c))));
-    escribir(`Perfil activo: ${p.nombre}. Escriba "help" para ver los comandos permitidos.`, "t-info");
+    const nivel = { lector: 0, operador: 1, administrador: 2 };
+    permitidos.replaceChildren(...p.permitidos.map((c) => {
+      const autorizado = nivel[sesion.usuario.rol] >= nivel[c.rol_minimo];
+      return el("li", {}, el("button", { type: "button", disabled: !autorizado, title: autorizado ? null : `Requiere el rol ${c.rol_nombre}`,
+        onclick: () => { entrada.value = c.comando; entrada.focus(); } }, c.comando, autorizado ? null : el("span", { class: "bloqueado-rol" }, `  (requiere ${c.rol_nombre})`)));
+    }));
+    if (p.id !== perfilAnterior) escribir(`Perfil activo: ${p.nombre}. Escriba "help" para ver los comandos permitidos.`, "t-info");
+    perfilAnterior = p.id;
   }
 
   selEquipo.addEventListener("change", () => {
@@ -50,7 +57,7 @@ export async function render(cont) {
     historial.push(comando); posHistorial = historial.length;
     escribir(`${prompt.textContent} ${comando}`);
     try {
-      const r = await api("/api/console/ejecutar", { method: "POST", body: { perfil: selPerfil.value, comando, usuario: operador(), device_id: selEquipo.value ? Number(selEquipo.value) : null } });
+      const r = await api("/api/console/ejecutar", { method: "POST", body: { perfil: selPerfil.value, comando, device_id: selEquipo.value ? Number(selEquipo.value) : null } });
       if (r.decision === "PERMITIDO") escribir(r.salida);
       else escribir(`% [${r.decision.replace("_", " ")}] ${r.motivo}${r.decision === "PROPUESTA" ? ` Registro #${r.audit_id}: debe aprobarlo otro usuario en Auditoría.` : ""}`, CLASE[r.decision]);
       if (r.decision === "PROPUESTA") window.dispatchEvent(new Event("noc:actualizar-menu"));
@@ -68,7 +75,7 @@ export async function render(cont) {
     enviar(comando);
   });
 
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Control de cambios", "Consola de equipos",
       "Consola de solo lectura, sin conexión a equipos reales (simulación). Los comandos de consulta se responden; los de cambio quedan como propuesta para aprobación; los peligrosos se bloquean. Todo queda registrado en Auditoría."),
     el("div", { class: "filtros" }, el("label", {}, "Equipo", selEquipo), el("label", {}, "Perfil / modo del equipo", selPerfil)),
@@ -79,12 +86,12 @@ export async function render(cont) {
         el("div", { class: "linea-entrada" }, prompt, entrada)),
       el("section", { class: "panel" },
         el("h2", {}, "Comandos permitidos"),
-        el("p", { class: "nota" }, "Haga clic en un comando para escribirlo en la consola."),
+        el("p", { class: "nota" }, `Su rol: ${sesion.usuario.rol_nombre}. Haga clic en un comando para escribirlo en la consola.`),
         permitidos,
         el("h2", {}, "Qué significa cada respuesta"),
         el("div", { class: "leyenda" },
           el("div", {}, chip("PERMITIDO"), "Consulta autorizada: se muestra la salida simulada."),
-          el("div", {}, chip("PROPUESTA"), "Comando de cambio: no se ejecuta; requiere aprobación de otro usuario."),
+          el("div", {}, chip("PROPUESTA"), "Comando de cambio: no se ejecuta; lo aprueba un administrador distinto (el Lector no puede proponer)."),
           el("div", {}, chip("BLOQUEADO"), "Destructivo, encadenado o desconocido: se deniega."),
           el("div", {}, chip("NO_VERIFICADO"), "Comando de otra marca o de otro modo del equipo.")))),
   );

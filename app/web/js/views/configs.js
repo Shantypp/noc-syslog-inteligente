@@ -3,7 +3,7 @@
  * Produce texto comentado para revisión humana. Nunca se aplica a un equipo.
  */
 import { api } from "../api.js";
-import { el, intentar, aviso, encabezado } from "../ui.js";
+import { el, intentar, aviso, encabezado, montar } from "../ui.js";
 
 export const titulo = "Plantillas de configuración";
 export const icono = "configs";
@@ -55,7 +55,7 @@ export async function render(cont) {
   }
 
   for (const campo of Object.values(f)) campo.addEventListener("change", generar);
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Administración", "Plantillas de configuración",
       "Genera la configuración Syslog comentada para Cisco, Fortinet o Huawei. Es un texto para revisión: la aplicación nunca lo aplica a los equipos. Los datos de entrada se validan para impedir que se inyecten comandos."),
     el("section", { class: "panel" },

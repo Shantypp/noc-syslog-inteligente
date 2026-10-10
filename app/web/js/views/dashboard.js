@@ -5,7 +5,7 @@
  * Se actualiza cada 10 s.
  */
 import { api } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, encabezado, SEVERIDADES } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, encabezado, componente, SEVERIDADES, montar } from "../ui.js";
 
 export const titulo = "Panel general";
 export const icono = "panel";
@@ -39,7 +39,7 @@ const mensaje = (e) => [e.sospechoso ? el("span", { class: "marca-sospechoso" },
 async function dibujar(cont) {
   const d = await api("/api/dashboard");
   const t = d.tarjetas;
-  cont.replaceChildren(
+  montar(cont, 
     encabezado("Operación", "Panel general",
       `Estado de la red en tiempo real. Se actualiza cada 10 segundos. Un equipo pasa a "Sin comunicación" si no envía eventos en ${d.umbral_sin_comunicacion_min} minutos.`),
 
@@ -59,15 +59,18 @@ async function dibujar(cont) {
       tarjeta("Equipos sin comunicación", t.equipos_sin_comunicacion, t.equipos_sin_comunicacion ? "peligro" : ""),
       tarjeta("Eventos últimas 24 h", t.eventos_24h),
       tarjeta("Eventos críticos (0–2)", t.criticos_24h, t.criticos_24h ? "peligro" : ""),
+      tarjeta("Componentes con problema", t.componentes_con_problema, t.componentes_con_problema ? "peligro" : ""),
       tarjeta("Eventos sospechosos", t.sospechosos_24h, t.sospechosos_24h ? "alerta" : ""),
       tarjeta("Aprobaciones pendientes", t.aprobaciones_pendientes, t.aprobaciones_pendientes ? "alerta" : "")),
 
     el("div", { class: "grid-2" },
       el("section", { class: "panel" }, el("h2", {}, "Estado de los equipos"),
         tabla([
-          { titulo: "Equipo", valor: (e) => [el("strong", {}, e.nombre), el("br"), el("small", {}, e.ip)] },
+          { titulo: "Equipo", valor: (e) => [el("strong", {}, e.nombre), el("br"), el("small", {}, e.ip)], clase: "nowrap" },
           { titulo: "Marca", valor: (e) => e.marca },
           { titulo: "Estado", valor: (e) => chip(e.estado_operativo) },
+          { titulo: "Dónde está el problema", valor: (e) => e.componentes_con_problema.length
+              ? el("a", { href: "#puertos", class: "problemas" }, e.componentes_con_problema.join(", ")) : el("span", { class: "suave" }, "Sin problemas") },
           { titulo: "Último evento", valor: (e) => fecha(e.ultimo_evento), clase: "num" },
         ], d.equipos, "No hay equipos registrados. Comience en Inventario.")),
       el("section", { class: "panel" }, el("h2", {}, "Eventos por severidad (24 h)"), barras(d.por_severidad))),
@@ -75,8 +78,9 @@ async function dibujar(cont) {
     el("section", { class: "panel" }, el("h2", {}, "Eventos críticos recientes"),
       tabla([
         { titulo: "Fecha", valor: (e) => fecha(e.recibido_en), clase: "num" },
-        { titulo: "Equipo", valor: (e) => e.equipo || e.hostname || "—" },
+        { titulo: "Equipo", valor: (e) => e.equipo || e.hostname || "—", clase: "nowrap" },
         { titulo: "Severidad", valor: (e) => sevBadge(e.severidad) },
+        { titulo: "Componente", valor: componente },
         { titulo: "Mensaje", clase: "mensaje", valor: mensaje },
         { titulo: "Incidente", valor: (e) => el("a", { href: "#incidentes" }, "Revisar") },
       ], d.eventos_criticos, "No hay eventos críticos.")),
@@ -100,15 +104,16 @@ async function dibujar(cont) {
     el("section", { class: "panel" }, el("h2", {}, "Últimos eventos recibidos"),
       tabla([
         { titulo: "Fecha", valor: (e) => fecha(e.recibido_en), clase: "num" },
-        { titulo: "Equipo", valor: (e) => e.equipo || e.hostname || "—" },
+        { titulo: "Equipo", valor: (e) => e.equipo || e.hostname || "—", clase: "nowrap" },
         { titulo: "Severidad", valor: (e) => sevBadge(e.severidad) },
+        { titulo: "Componente", valor: componente },
         { titulo: "Mensaje", clase: "mensaje", valor: mensaje },
       ], d.eventos_recientes, "Aún no hay eventos. Ejecute scripts/enviar_syslog_prueba.py o importe un archivo en Eventos.")),
   );
 }
 
 export async function render(cont) {
-  await dibujar(cont).catch((e) => cont.replaceChildren(el("div", { class: "aviso" }, `No se pudo cargar el panel: ${e.message}`)));
+  await dibujar(cont).catch((e) => montar(cont, el("div", { class: "aviso" }, `No se pudo cargar el panel: ${e.message}`)));
   const timer = setInterval(() => dibujar(cont).catch(() => {}), 10000);
   return () => clearInterval(timer); // se detiene al cambiar de vista
 }

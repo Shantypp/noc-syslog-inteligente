@@ -13,6 +13,8 @@ Decisiones posibles para cada comando:
 
 import re
 
+from app.security.auth import NIVEL, NOMBRE_ROL
+
 LARGO_MAXIMO = 120
 _PELIGROSOS = re.compile(r"[;&`$<>\n\r\\]")  # encadenar o redirigir comandos
 
@@ -80,8 +82,29 @@ def _palabras_nativas(p: dict) -> set:
             | {d.split()[0] for d in p["destructivos"]} | {"help", "?"})
 
 
-def evaluar(perfil_id: str, comando: str) -> dict:
-    """Decide qué hacer con un comando. Devuelve {decision, motivo, salida}."""
+# Comandos de consulta que exigen más que el rol lector (muestran configuración del equipo)
+ROL_MINIMO_COMANDO = {
+    "show logging": "operador",
+    "show running-config | include logging": "operador",
+    "show log syslogd setting": "operador",
+    "show log syslogd filter": "operador",
+    "display info-center": "operador",
+    "set": "operador",
+    "confreg": "operador",
+}
+
+
+def rol_minimo(comando: str) -> str:
+    return ROL_MINIMO_COMANDO.get(comando, "lector")
+
+
+def evaluar(perfil_id: str, comando: str, rol: str = "administrador") -> dict:
+    """
+    Decide qué hacer con un comando según el perfil del equipo y el ROL del usuario:
+      lector         consultas básicas (versión, interfaces, hora); no propone cambios
+      operador       + consultas de configuración de logs y PROPONER cambios
+      administrador  igual que operador en la consola; además aprueba propuestas de otros
+    """
     p = PERFILES[perfil_id]
     cmd = normalizar(comando)
 
@@ -95,8 +118,11 @@ def evaluar(perfil_id: str, comando: str) -> dict:
     if _PELIGROSOS.search(cmd):
         return r("BLOQUEADO", "Caracteres de encadenamiento/redirección no permitidos (; & ` $ < > \\)")
     if cmd in ("help", "?"):
-        return r("PERMITIDO", "Ayuda", "Comandos permitidos (solo lectura):\n  " + "\n  ".join(p["permitidos"]))
+        disponibles = [c for c in p["permitidos"] if NIVEL[rol] >= NIVEL[rol_minimo(c)]]
+        return r("PERMITIDO", "Ayuda", f"Comandos permitidos para su rol ({NOMBRE_ROL[rol]}):\n  " + "\n  ".join(disponibles))
     if cmd in p["permitidos"]:
+        if NIVEL[rol] < NIVEL[rol_minimo(cmd)]:
+            return r("BLOQUEADO", f"Consulta permitida solo desde el rol {NOMBRE_ROL[rol_minimo(cmd)]}. Su rol: {NOMBRE_ROL[rol]}.")
         return r("PERMITIDO", "En la lista permitida (solo lectura)", p["permitidos"][cmd])
     if "|" in cmd:
         return r("BLOQUEADO", "Uso de '|' fuera de la lista permitida")
@@ -108,7 +134,9 @@ def evaluar(perfil_id: str, comando: str) -> dict:
         return r("NO_VERIFICADO", p.get("aviso_foraneo") or
                  f"El comando no corresponde a {p['nombre']} (otra marca o modo). No se ejecuta.")
     if primera in p["cambio"]:
-        return r("PROPUESTA", "Comando de cambio: requiere revisión y aprobación humana. NO se ejecutó.")
+        if rol == "lector":
+            return r("BLOQUEADO", "Su rol (Lector) no permite proponer cambios en los equipos.")
+        return r("PROPUESTA", "Comando de cambio: requiere aprobación de un administrador distinto. NO se ejecutó.")
     if any(c.split()[0] == primera for c in p["permitidos"]):
         return r("BLOQUEADO", "Consulta no incluida en la lista permitida")
     return r("BLOQUEADO", "Comando desconocido: se deniega por defecto")
