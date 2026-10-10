@@ -19,6 +19,7 @@ import os
 import sqlite3
 from collections import Counter
 
+from app.collector.componentes import identificar
 from app.collector.parser import MensajeInvalido, parse_syslog
 from app.security.controls import (LimitadorTasa, es_sospechoso, huella_dedup,
                                    limpiar_mensaje)
@@ -86,13 +87,16 @@ def procesar_mensaje(conn: sqlite3.Connection, crudo: str, ip_origen: str,
         conn.commit()
         return _contar("duplicado", previo["id"])
 
+    # ¿Qué parte del equipo genera el evento? (puerto, fuente, sensor, túnel...)
+    componente, estado_componente = identificar(mensaje)
+
     cur = conn.execute(
         "INSERT INTO events (device_id, timestamp_equipo, ip_origen, hostname, facility, "
-        "severidad, mensaje, mensaje_crudo, hash_dedup, sospechoso, origen) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "severidad, mensaje, mensaje_crudo, hash_dedup, sospechoso, origen, componente, estado_componente) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (equipo["id"], datos["timestamp_equipo"], ip_origen, datos["hostname"],
          datos["facility"], datos["severidad"], mensaje, limpiar_mensaje(crudo),
-         huella, int(es_sospechoso(mensaje)), equipo["origen"]),
+         huella, int(es_sospechoso(mensaje)), equipo["origen"], componente, estado_componente),
     )
     conn.commit()
     return _contar("guardado", cur.lastrowid)

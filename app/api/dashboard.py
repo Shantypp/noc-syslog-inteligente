@@ -13,10 +13,12 @@ from app.api.events import enriquecer
 from app.collector import ingest
 from app.console.audit import PENDIENTE
 from app.database import get_db
+from app.api.puertos import estado_componentes
 from app.incidents.policy import UMBRAL_INCIDENTE, UMBRAL_SIN_COMUNICACION_MIN, propuestas
+from app.security.auth import requiere
 from app.utils import hace
 
-router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"], dependencies=[Depends(requiere("lector"))])
 
 
 def estado_equipos(conn: sqlite3.Connection) -> list[dict]:
@@ -31,9 +33,14 @@ def estado_equipos(conn: sqlite3.Connection) -> list[dict]:
         "SELECT d.*, MAX(e.recibido_en) AS ultimo_evento, COUNT(e.id) AS total_eventos "
         "FROM devices d LEFT JOIN events e ON e.device_id = d.id "
         "GROUP BY d.id ORDER BY d.nombre").fetchall()
+    problemas: dict[int, list[str]] = {}
+    for c in estado_componentes(conn):
+        if c["con_problema"]:
+            problemas.setdefault(c["device_id"], []).append(f'{c["componente"]} ({c["estado"]})')
     equipos = []
     for r in rows:
         eq = dict(r)
+        eq["componentes_con_problema"] = problemas.get(eq["id"], [])
         if eq["estado"] != "activo":
             eq["estado_operativo"] = eq["estado"]
         elif not eq["ultimo_evento"] or eq["ultimo_evento"] < limite:
@@ -76,6 +83,7 @@ def resumen(conn: sqlite3.Connection = Depends(get_db)):
                                    desde_24h),
             "incidentes_abiertos": uno("SELECT COUNT(*) FROM incidents WHERE estado != 'cerrado'"),
             "propuestas_pendientes": len(propuestas(conn, limite=500)),
+            "componentes_con_problema": sum(len(e["componentes_con_problema"]) for e in equipos),
             "aprobaciones_pendientes": uno("SELECT COUNT(*) FROM command_audit WHERE resultado = ?", PENDIENTE),
         },
         "umbral_sin_comunicacion_min": UMBRAL_SIN_COMUNICACION_MIN,
