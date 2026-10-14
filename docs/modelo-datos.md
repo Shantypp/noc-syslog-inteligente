@@ -8,6 +8,8 @@ erDiagram
     INCIDENTS ||--o{ INCIDENT_LOG : "seguimiento"
     DEVICES ||--o{ COMMAND_AUDIT : "se consulta en"
     USERS ||--o{ SESSIONS : abre
+    DEVICES ||--o{ DETECCIONES : "patrón detectado"
+    DETECCIONES |o--o| INCIDENTS : "se convierte en"
     DEVICES {
         int id PK
         text nombre
@@ -37,6 +39,8 @@ erDiagram
         text origen
         text componente "puerto o parte afectada"
         text estado_componente
+        text revisado_por "propuesta descartada por"
+        text revisado_en
     }
     INCIDENTS {
         int id PK
@@ -51,6 +55,7 @@ erDiagram
         text cerrado_en
         text causa
         text solucion
+        text recuperado_en "el componente volvió a Arriba"
     }
     INCIDENT_LOG {
         int id PK
@@ -83,6 +88,32 @@ erDiagram
         text token_hash PK "SHA-256 del token"
         int user_id FK
         text expira_en
+    }
+    DETECCIONES {
+        int id PK
+        text regla "fuerza_bruta|fuera_de_horario|puerto_inestable|tormenta|manipulacion"
+        int device_id FK
+        text clave "IP atacante o puerto"
+        text titulo
+        text detalle
+        int severidad
+        int cantidad
+        int ultimo_evento_id FK
+        text estado "nueva|incidente|descartada"
+        int incident_id FK
+        text revisado_por
+        text motivo
+    }
+    SETTINGS {
+        text clave PK
+        text valor
+        text actualizado_por
+        text actualizado_en
+    }
+    INGEST_STATS {
+        text dia PK
+        text resultado PK
+        int cantidad
     }
     AUTH_LOG {
         int id PK

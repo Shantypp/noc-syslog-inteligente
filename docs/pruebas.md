@@ -1,6 +1,6 @@
-# Pruebas · v0.2.0
+# Pruebas · v0.3.0
 
-Ejecutar: `pytest -v` → **110 pruebas, todas pasan**.
+Ejecutar: `pytest -v` → **138 pruebas, todas pasan**.
 
 ## Pruebas automáticas por módulo
 
@@ -15,6 +15,7 @@ Ejecutar: `pytest -v` → **110 pruebas, todas pasan**.
 | `test_dashboard_incidents.py` | Filtros con total, fechas, panel general, sin comunicación, ciclo de incidente, aprobaciones pendientes | 11 |
 | `test_configgen_console.py` | Plantillas, validación anti-inyección, 18 decisiones de consola, auditoría, aprobación, integridad, CSV | 32 |
 | `test_security.py` | Detección de manipulación, falsos positivos, política, XSS | 11 |
+| `test_operacion.py` | Límite por equipo, detecciones (fuerza bruta, fuera de horario, flapping, tormenta, manipulación), correlación y recuperación, descartar propuestas y detecciones, bandeja de atención, novedades, búsqueda y CSV, ficha de equipo, configuración, respaldo, retención, configuración inicial | 28 |
 
 ## Pruebas funcionales (manuales, con evidencia)
 
