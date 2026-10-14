@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import (auth, configgen, console, dashboard, detecciones, devices, events, incidents, puertos,
                      security, sistema, usuarios)
-from app import mantenimiento
+from app import VERSION, mantenimiento
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import get_connection, init_db
 
@@ -46,7 +46,7 @@ async def ciclo_de_vida(app: FastAPI):
 app = FastAPI(
     title="NOC Syslog Inteligente",
     description="API del NOC académico. Datos SIMULADOS.",
-    version="0.3.0",
+    version=VERSION,
     lifespan=ciclo_de_vida,
 )
 

@@ -1,4 +1,4 @@
-"""Pruebas de la v0.3: detecciones, correlación, límite por equipo, configuración y sistema."""
+"""Pruebas de operación: detecciones, correlación, límite por equipo, configuración y sistema."""
 
 from datetime import timedelta
 

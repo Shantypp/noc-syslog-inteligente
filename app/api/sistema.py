@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app import config, mantenimiento
+from app import VERSION, config, mantenimiento
 from app.collector import ingest, udp_server
 from app.database import get_db
 from app.security.auth import requiere
@@ -53,7 +53,7 @@ def estado(u: dict = Depends(requiere("lector")), conn: sqlite3.Connection = Dep
     archivo = conn.execute("PRAGMA database_list").fetchone()["file"]
     ruta = Path(archivo) if archivo else None
     return {
-        "version": "0.3.0",
+        "version": VERSION,
         "udp": {**udp_server.ESTADO, "host": host,
                 "puerto": udp_server.ESTADO["puerto"] or int(os.getenv("SYSLOG_UDP_PORT", "5514")),
                 "solo_local": solo_local},

@@ -1,11 +1,11 @@
-# NOC Syslog Inteligente · v0.3.0
+# NOC Syslog Inteligente · v0.2.0 (MVP)
 
 > Proyecto académico individual · **Administración y Gestión de Redes** · Periodo 2026-2
 > Docente: Ing. John Harold Pérez Calderón · Estudiante: Jhoan Santiago Pachón Perilla
 >
 > ⚠️ **Todos los dispositivos y eventos de este repositorio son SIMULADOS** (IPs de documentación `192.0.2.0/24`, RFC 5737). No se conecta a ningún equipo real.
 
-![Panel general con la bandeja "Requiere su atención"](docs/evidencias/V01-panel-requiere-atencion.png)
+![Panel general con la bandeja "Requiere su atención"](docs/evidencias/E05-dashboard.png)
 
 ## Problema que resuelve
 
@@ -29,14 +29,14 @@ Una red con equipos de varios fabricantes (Cisco, Fortinet, Huawei) produce even
 | 10 | Política de defensa frente a agentes de IA con evidencia en vivo | RNF-09 | Política de seguridad |
 | 11 | **Inicio de sesión por usuario** y **roles** (lector, operador, administrador) que definen qué puede ver, atender y qué comandos puede aplicar | RF-10 | Usuarios |
 | 12 | **Puertos y componentes**: identifica qué parte del equipo genera el problema (puerto, fuente de poder, sensor, túnel VPN, clúster HA) | RF-11 | Puertos y componentes |
-| 13 | **Detecciones automáticas** (correlación de eventos): fuerza bruta, cambios fuera de horario, puerto inestable (flapping), tormenta por equipo, manipulación en logs | v0.3 | Detecciones |
-| 14 | **Correlación con incidentes**: un evento nuevo de la misma parte del equipo se suma al incidente abierto; si se recupera, el incidente se marca "Recuperado" | v0.3 | Incidentes |
-| 15 | **"Requiere su atención"**: bandeja priorizada (SLA vencidos, detecciones, propuestas, aprobaciones, equipos caídos, recuperados) | v0.3 | Panel general |
-| 16 | **Ficha de equipo**: estado, partes con problema, incidentes, detecciones, actividad 24 h y eventos de un equipo | v0.3 | Clic en cualquier equipo |
-| 17 | **Configuración en la aplicación**: umbrales y horario laboral sin editar archivos; estado del colector; respaldo descargable; retención; datos de demostración | v0.3 | Configuración |
-| 18 | Búsqueda de texto, "Cargar más" y **exportación a Excel (CSV)** de eventos e incidentes; descartar propuestas con motivo | v0.3 | Eventos · Incidentes |
-| 19 | **Avisos en vivo** de eventos graves y detecciones nuevas (cada 15 s) y **Ayuda** integrada (por rol, conectar equipos, preguntas frecuentes) | v0.3 | Toda la interfaz · Ayuda |
-| 20 | **Instalación en 1 paso** (`iniciar.bat`) y **configuración inicial** en la app (crear el primer administrador sin tocar archivos) | v0.3 | — |
+| 13 | **Detecciones automáticas** (correlación de eventos): fuerza bruta, cambios fuera de horario, puerto inestable (flapping), tormenta por equipo, manipulación en logs | RF-12 | Detecciones |
+| 14 | **Correlación con incidentes**: un evento nuevo de la misma parte del equipo se suma al incidente abierto; si se recupera, el incidente se marca "Recuperado" | RF-13 | Incidentes |
+| 15 | **"Requiere su atención"**: bandeja priorizada (SLA vencidos, detecciones, propuestas, aprobaciones, equipos caídos, recuperados) | RF-15 | Panel general |
+| 16 | **Ficha de equipo**: estado, partes con problema, incidentes, detecciones, actividad 24 h y eventos de un equipo | RF-15 | Clic en cualquier equipo |
+| 17 | **Configuración en la aplicación**: umbrales y horario laboral sin editar archivos; estado del colector; respaldo descargable; retención; datos de demostración | RF-14 | Configuración |
+| 18 | Búsqueda de texto, "Cargar más" y **exportación a Excel (CSV)** de eventos e incidentes; descartar propuestas con motivo | RF-15 | Eventos · Incidentes |
+| 19 | **Avisos en vivo** de eventos graves y detecciones nuevas (cada 15 s) y **Ayuda** integrada (por rol, conectar equipos, preguntas frecuentes) | RF-15, RNF-02 | Toda la interfaz · Ayuda |
+| 20 | **Instalación en 1 paso** (`iniciar.bat`) y **configuración inicial** en la app (crear el primer administrador sin tocar archivos) | RNF-05 | `iniciar.bat` |
 
 ## Arquitectura
 
@@ -180,7 +180,7 @@ Rollback de código: cada versión tiene etiqueta (`git switch --detach v0.1.0`)
 
 Política completa: [docs/politica-ia.md](docs/politica-ia.md).
 
-## Limitaciones conocidas (v0.3.0)
+## Limitaciones conocidas (v0.2.0)
 
 - Datos y equipos **simulados**; la consola no se conecta por SSH (previsto para v1.0.0 con backend autorizado).
 - En laboratorio la aplicación usa HTTP; en producción debe publicarse con HTTPS (`NOC_COOKIE_SEGURA=1`).
@@ -214,5 +214,5 @@ iniciar.py · iniciar.bat · iniciar-red.bat   arranque en 1 paso
 
 ## Autor, versión y licencia
 
-Jhoan Santiago Pachón Perilla · versión **0.3.0** · Uso académico (ver [LICENSE](LICENSE)).
+Jhoan Santiago Pachón Perilla · versión **0.2.0** · Uso académico (ver [LICENSE](LICENSE)).
 Desarrollado con asistencia de IA como herramienta; el código fue ejecutado, probado y revisado por el autor. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).

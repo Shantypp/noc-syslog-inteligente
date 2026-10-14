@@ -12,14 +12,16 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 **Objetivos específicos.**
 1. Mantener un inventario editable de dispositivos con fecha de actualización.
 2. Recibir/importar Syslog y clasificarlo por equipo, marca, fecha, facility y severidad 0–7.
-3. Visualizar estado, eventos e incidentes en un dashboard con filtros.
+3. Visualizar estado, eventos e incidentes en un dashboard con filtros, priorizando lo que requiere atención.
 4. Gestionar el ciclo de vida de incidentes.
 5. Generar configuraciones Syslog comentadas para Cisco, Fortinet y Huawei.
 6. Ofrecer una consola simulada de solo lectura con lista permitida y auditoría.
 7. Implementar una política de defensa frente a agentes de IA.
+8. Detectar automáticamente patrones entre eventos (ataques, cambios fuera de horario, inestabilidad) y relacionarlos con los incidentes.
+9. Facilitar la instalación y la operación: arranque en un paso, configuración desde la aplicación y ayuda integrada.
 
 **Alcance v0.2.0.** Las funciones anteriores con datos **simulados** (IPs 192.0.2.0/24) en laboratorio local.
-**Fuera de alcance (Corte 3).** Telegram, SSH real vía backend, RBAC con inicio de sesión, TLS, marcha blanca, despliegue.
+**Fuera de alcance (Corte 3).** Telegram, SSH real vía backend, TLS, marcha blanca, despliegue.
 
 ## Requisitos funcionales
 
@@ -35,6 +37,10 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | RF-08 | Auditoría y exportación de evidencia | M | Todo comando con usuario, fecha, equipo, decisión, hash; CSV exportable; integridad verificable | HU-05 | `test_configgen_console.py` | ✅ |
 | RF-10 | Inicio de sesión por usuario y permisos por rol (lector, operador, administrador), incluidos los comandos que cada rol puede aplicar | M | Sin sesión → 401; acción de rol insuficiente → 403; lector no propone cambios; solo un administrador aprueba, y no lo suyo | HU-09, HU-10 | `test_auth_roles.py` | ✅ |
 | RF-11 | Identificar qué parte del equipo genera el problema (puerto, fuente, sensor, túnel, clúster) | M | `Interface Gi0/2 ... down` → GigabitEthernet0/2 · Caído; el panel muestra "dónde está el problema" | HU-11 | `test_puertos.py` | ✅ |
+| RF-12 | Detectar patrones entre eventos: fuerza bruta, cambio de configuración fuera de horario, puerto inestable, tormenta por equipo y manipulación | M | 5 inicios fallidos desde la misma IP en 5 min → detección (aunque sean repetidos); cada detección se convierte en incidente o se descarta con motivo | HU-12, HU-13, HU-14 | `test_operacion.py` | ✅ |
+| RF-13 | Relacionar los eventos con el incidente abierto de la misma parte del equipo y detectar su recuperación | M | Un "up" del componente agrega el evento al historial (usuario "sistema") y marca el incidente *Recuperado*; no se repite la propuesta | HU-15 | `test_operacion.py` | ✅ |
+| RF-14 | Configurar el sistema desde la aplicación: umbrales, horario laboral, respaldo, retención y datos de demostración | M | Cambio válido se aplica sin reiniciar y registra quién lo hizo; valores fuera de rango → 422; solo administrador | HU-16 | `test_operacion.py` | ✅ |
+| RF-15 | Priorizar el trabajo: bandeja "Requiere su atención", ficha por equipo, búsqueda de texto, exportación CSV y avisos en vivo | S | La bandeja ordena SLA vencidos, detecciones, propuestas, aprobaciones y equipos sin comunicación; `%` y `_` se buscan literalmente; CSV protegido contra fórmulas | HU-01, HU-02 | `test_operacion.py` | ✅ |
 | RF-09 | Notificación por Telegram | W | Una alerta por incidente, token enmascarado, sin inundar | — | — | ⏳ |
 
 ## Requisitos no funcionales
@@ -42,11 +48,11 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | ID | Atributo | Requisito | Cómo se cumple | Estado |
 |---|---|---|---|---|
 | RNF-01 | Seguridad | Secretos fuera del código | `.env` + `.gitignore`; `.env.example` sin valores; contraseñas cifradas (PBKDF2) | ✅ |
-| RNF-02 | Usabilidad | Navegación comprensible | Menú lateral, colores por severidad, textos en español, ayudas por pantalla | ✅ |
+| RNF-02 | Usabilidad | Navegación comprensible | Menú lateral, bandeja priorizada, colores por severidad, textos en español, ayuda integrada por rol, diseño adaptable a celular | ✅ |
 | RNF-03 | Trazabilidad | Cada evento/acción con fecha y actor | `recibido_en`, `incident_log`, `command_audit` con usuario y fecha | ✅ |
 | RNF-04 | Confiabilidad | Errores controlados y bitácora | Validaciones (422/404/409), el receptor UDP no cae ante mensajes malos, `logging` | ✅ |
-| RNF-05 | Portabilidad | Instalación desde cero | README con pasos exactos; `requirements.txt` | ✅ |
-| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 110 pruebas | ✅ |
-| RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación (máx. 500), deduplicación y rate limit | ✅ |
-| RNF-08 | Recuperación | Copia y rollback | `scripts/backup_db.py` (respaldo/restauración) y tags de Git | ✅ |
+| RNF-05 | Portabilidad | Instalación desde cero | `iniciar.bat` / `iniciar.py` (un paso), configuración inicial en la aplicación, README | ✅ |
+| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 138 pruebas | ✅ |
+| RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación (máx. 500), deduplicación, límite por equipo, consulta agrupada de componentes y SQLite en modo WAL | ✅ |
+| RNF-08 | Recuperación | Copia y rollback | Respaldo descargable desde la aplicación, `scripts/backup_db.py` (restauración), retención y tags de Git | ✅ |
 | RNF-09 | Seguridad IA | Logs nunca como instrucciones | Ver [politica-ia.md](politica-ia.md) | ✅ |
