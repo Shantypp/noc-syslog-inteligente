@@ -42,11 +42,13 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A[1. Ingreso<br/>UDP o archivo] --> B[2. Validación<br/>formato + fuente permitida<br/>+ dedup + rate limit]
-    B --> C[3. Política<br/>severidad ≤ 2]
-    C --> D[4. Incidente<br/>propuesta → humano crea]
-    D --> E[5. Respuesta<br/>seguimiento + evidencia]
+    A[1. Ingreso<br/>UDP o archivo] --> B[2. Validación<br/>formato + fuente permitida<br/>+ dedup + límite por equipo]
+    B --> C[3. Política<br/>severidad ≤ umbral<br/>+ detecciones automáticas]
+    C --> D[4. Incidente<br/>propuesta → humano decide<br/>abrir o descartar con motivo]
+    D --> E[5. Respuesta<br/>seguimiento + correlación<br/>+ recuperado + evidencia]
 ```
+
+Además de la severidad de cada evento, el paso 3 mira **varios eventos juntos** (`incidents/detecciones.py`): fuerza bruta por IP de origen, cambios de configuración fuera del horario laboral, puertos inestables, tormentas por equipo y manipulación en logs. En el paso 5, cada evento nuevo de una parte del equipo que ya tiene incidente abierto se agrega a su historial (`incidents/correlacion.py`) y, si esa parte vuelve a "Arriba", el incidente se marca *Recuperado*. Los umbrales se leen de `app/config.py` (editables en la pantalla Configuración).
 
 ## Flujo seguro de acciones
 
