@@ -1,7 +1,7 @@
 # NOC Syslog Inteligente · v0.2.0 (MVP)
 
-> Proyecto académico individual · **Administración y Gestión de Redes** · Periodo 2026-2
-> Docente: Ing. John Harold Pérez Calderón · Estudiante: Jhoan Santiago Pachón Perilla
+> Proyecto académico · **Administración y Gestión de Redes** · Periodo 2026-2
+> Docente: Ing. John Harold Pérez Calderón · **Trabajo realizado por Valentina Gutiérrez y Jhoan Santiago Pachón Perilla**
 >
 > ⚠️ **Todos los dispositivos y eventos de este repositorio son SIMULADOS** (IPs de documentación `192.0.2.0/24`, RFC 5737). No se conecta a ningún equipo real.
 
@@ -212,7 +212,7 @@ tests/                 pruebas automáticas (pytest)
 iniciar.py · iniciar.bat · iniciar-red.bat   arranque en 1 paso
 ```
 
-## Autor, versión y licencia
+## Autores, versión y licencia
 
-Jhoan Santiago Pachón Perilla · versión **0.2.0** · Uso académico (ver [LICENSE](LICENSE)).
-Desarrollado con asistencia de IA como herramienta; el código fue ejecutado, probado y revisado por el autor. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).
+Trabajo realizado por **Valentina Gutiérrez y Jhoan Santiago Pachón Perilla** · versión **0.2.0** · Uso académico (ver [LICENSE](LICENSE)).
+Desarrollado con asistencia de IA como herramienta; el código fue ejecutado, probado y revisado por los autores. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).
