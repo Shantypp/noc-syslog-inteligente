@@ -16,9 +16,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, configgen, console, dashboard, devices, events, incidents, puertos, security, usuarios
+from app.api import (auth, configgen, console, dashboard, detecciones, devices, events, incidents, puertos,
+                     security, sistema, usuarios)
+from app import mantenimiento
 from app.collector.udp_server import iniciar_receptor_udp
-from app.database import init_db
+from app.database import get_connection, init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
@@ -28,7 +30,11 @@ CARPETA_WEB = Path(__file__).parent / "web"
 @asynccontextmanager
 async def ciclo_de_vida(app: FastAPI):
     """Lo que pasa al encender y al apagar el servidor."""
-    init_db()  # crea las tablas si no existen
+    init_db()  # crea las tablas si no existen (y agrega columnas nuevas sin borrar datos)
+    with get_connection() as conn:  # retención: borra eventos más viejos que los días configurados
+        purga = mantenimiento.purgar_antiguos(conn)
+    if purga["eventos_eliminados"]:
+        logging.getLogger("noc").info("Retención: %s eventos antiguos eliminados", purga["eventos_eliminados"])
     transporte = None
     if os.getenv("SYSLOG_UDP_ENABLED", "1") == "1":
         transporte = await iniciar_receptor_udp()
@@ -40,7 +46,7 @@ async def ciclo_de_vida(app: FastAPI):
 app = FastAPI(
     title="NOC Syslog Inteligente",
     description="API del NOC académico. Datos SIMULADOS.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=ciclo_de_vida,
 )
 
@@ -55,6 +61,8 @@ app.include_router(dashboard.router)
 app.include_router(configgen.router)
 app.include_router(console.router)
 app.include_router(security.router)
+app.include_router(detecciones.router)
+app.include_router(sistema.router)
 
 
 @app.middleware("http")

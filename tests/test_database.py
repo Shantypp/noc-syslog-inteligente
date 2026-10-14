@@ -16,12 +16,12 @@ def db(tmp_path):
 
 
 def test_se_crean_todas_las_tablas(db):
-    assert list_tables(db) == ["auth_log", "command_audit", "devices", "events", "incident_log", "incidents", "sessions", "users"]
+    assert list_tables(db) == ["auth_log", "command_audit", "detecciones", "devices", "events", "incident_log", "incidents", "ingest_stats", "sessions", "settings", "users"]
 
 
 def test_init_db_se_puede_ejecutar_dos_veces(db):
     init_db(db)  # no debe fallar
-    assert len(list_tables(db)) == 8
+    assert len(list_tables(db)) == 11
 
 
 def test_ip_duplicada_es_rechazada(db):

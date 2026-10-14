@@ -10,8 +10,6 @@ api/console.py — Consola simulada y auditoría (RF-07, RF-08, HU-05).
     POST /api/auditoria/{id}/rechazar
 """
 
-import csv
-import io
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,6 +20,7 @@ from app.console import audit
 from app.console.simulator import PERFILES, evaluar, rol_minimo
 from app.database import get_db
 from app.security.auth import NOMBRE_ROL, requiere
+from app.utils import a_csv
 
 router = APIRouter(tags=["consola y auditoría"], dependencies=[Depends(requiere("lector"))])
 
@@ -76,23 +75,12 @@ def listar(decision: str | None = None, pendientes: bool = False, limit: int = 2
     return [dict(r) for r in rows]
 
 
-def _celda_segura(valor) -> str:
-    """Evita 'inyección de fórmulas' si el CSV se abre en Excel (=, +, -, @ al inicio)."""
-    texto = "" if valor is None else str(valor)
-    return "'" + texto if texto[:1] in ("=", "+", "-", "@") else texto
-
-
 @router.get("/api/auditoria/exportar")
 def exportar(conn: sqlite3.Connection = Depends(get_db)):
     columnas = ["id", "fecha", "usuario", "equipo", "comando", "decision", "aprobado_por", "resultado", "hash_evidencia"]
-    salida = io.StringIO()
-    w = csv.writer(salida)
-    w.writerow(columnas)
-    for r in conn.execute("SELECT a.*, d.nombre AS equipo FROM command_audit a "
-                          "LEFT JOIN devices d ON d.id = a.device_id ORDER BY a.id"):
-        w.writerow([_celda_segura(r[c]) for c in columnas])
-    return Response(content="﻿" + salida.getvalue(),  # BOM: Excel muestra bien las tildes
-                    media_type="text/csv; charset=utf-8",
+    filas = conn.execute("SELECT a.*, d.nombre AS equipo FROM command_audit a "
+                         "LEFT JOIN devices d ON d.id = a.device_id ORDER BY a.id")
+    return Response(content=a_csv(columnas, filas), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="auditoria_noc.csv"'})
 
 

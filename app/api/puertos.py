@@ -12,7 +12,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends
 
-from app.collector.componentes import es_problema
+from app.collector.componentes import ESTADOS_PROBLEMA, es_problema
 from app.collector.parser import SEVERIDADES
 from app.database import get_db
 from app.security.auth import requiere
@@ -20,29 +20,33 @@ from app.security.auth import requiere
 router = APIRouter(prefix="/api/puertos", tags=["puertos y componentes"], dependencies=[Depends(requiere("lector"))])
 
 
-def estado_componentes(conn: sqlite3.Connection) -> list[dict]:
-    """Un registro por (equipo, componente) con su último estado, contadores e incidente abierto."""
+def estado_componentes(conn: sqlite3.Connection, device_id: int | None = None) -> list[dict]:
+    """
+    Un registro por (equipo, componente) con su último estado, contadores e incidente abierto.
+    Se resuelve en UNA consulta agrupada (no recorre todos los eventos en Python).
+    """
+    marcas = ", ".join("?" * len(ESTADOS_PROBLEMA))
+    filtro, params = "", list(ESTADOS_PROBLEMA)
+    if device_id is not None:
+        filtro = " AND device_id = ?"
+        params.append(device_id)
     filas = conn.execute(
-        "SELECT e.id, e.device_id, d.nombre AS equipo, d.marca, e.componente, e.estado_componente, "
-        "e.severidad, e.recibido_en, e.mensaje, i.id AS incident_id, i.estado AS incident_estado "
-        "FROM events e JOIN devices d ON d.id = e.device_id "
-        "LEFT JOIN incidents i ON i.event_id = e.id "
-        "WHERE e.componente IS NOT NULL ORDER BY e.id").fetchall()
-    componentes: dict[tuple, dict] = {}
-    for f in filas:
-        clave = (f["device_id"], f["componente"])
-        c = componentes.setdefault(clave, {
-            "device_id": f["device_id"], "equipo": f["equipo"], "marca": f["marca"],
-            "componente": f["componente"], "eventos": 0, "problemas": 0, "incidente_abierto": None})
-        c["eventos"] += 1
-        c["problemas"] += int(es_problema(f["estado_componente"]))
-        if f["incident_id"] and f["incident_estado"] != "cerrado":
-            c["incidente_abierto"] = f["incident_id"]
+        "WITH ult AS (SELECT device_id, componente, MAX(id) AS id, COUNT(*) AS eventos, "
+        f"  COALESCE(SUM(estado_componente IN ({marcas})), 0) AS problemas "
+        f"  FROM events WHERE componente IS NOT NULL AND device_id IS NOT NULL{filtro} GROUP BY device_id, componente) "
+        "SELECT ult.*, d.nombre AS equipo, d.marca, e.estado_componente, e.severidad, e.recibido_en, e.mensaje, "
+        "  (SELECT i.id FROM incidents i JOIN events ie ON ie.id = i.event_id WHERE i.estado != 'cerrado' "
+        "   AND ie.device_id = ult.device_id AND ie.componente = ult.componente ORDER BY i.id DESC LIMIT 1) AS incidente_abierto "
+        "FROM ult JOIN events e ON e.id = ult.id JOIN devices d ON d.id = ult.device_id", params).fetchall()
+    componentes = [{
+        "device_id": f["device_id"], "equipo": f["equipo"], "marca": f["marca"], "componente": f["componente"],
+        "eventos": f["eventos"], "problemas": f["problemas"], "incidente_abierto": f["incidente_abierto"],
         # El último evento define el estado actual
-        c.update(estado=f["estado_componente"], con_problema=es_problema(f["estado_componente"]),
-                 severidad=f["severidad"], severidad_nombre=SEVERIDADES[f["severidad"]],
-                 ultimo_evento=f["recibido_en"], ultimo_mensaje=f["mensaje"], event_id=f["id"])
-    return sorted(componentes.values(), key=lambda c: (c["equipo"], not c["con_problema"], c["componente"]))
+        "estado": f["estado_componente"], "con_problema": es_problema(f["estado_componente"]),
+        "severidad": f["severidad"], "severidad_nombre": SEVERIDADES[f["severidad"]],
+        "ultimo_evento": f["recibido_en"], "ultimo_mensaje": f["mensaje"], "event_id": f["id"],
+    } for f in filas]
+    return sorted(componentes, key=lambda c: (c["equipo"], not c["con_problema"], c["componente"]))
 
 
 @router.get("")

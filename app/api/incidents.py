@@ -3,6 +3,8 @@ api/incidents.py — Gestión de incidentes (RF-05, HU-03).
 
     GET   /api/incidents                 listar (filtro ?estado=)
     GET   /api/incidents/propuestas      eventos graves esperando revisión humana
+    POST  /api/incidents/propuestas/{event_id}/descartar   descartar una propuesta con motivo
+    GET   /api/incidents/exportar.csv    exportar incidentes (CSV)
     GET   /api/incidents/{id}            detalle + evento original + seguimiento
     POST  /api/incidents                 crear (desde un evento o manual)
     PATCH /api/incidents/{id}            asignar responsable, cambiar estado o agregar nota
@@ -15,12 +17,13 @@ import sqlite3
 from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, model_validator
 
 from app.database import get_db
 from app.incidents.policy import SLA_MINUTOS, propuestas
 from app.security.auth import requiere
-from app.utils import ahora_utc, de_texto
+from app.utils import a_csv, ahora_utc, de_texto
 
 router = APIRouter(prefix="/api/incidents", tags=["incidentes"], dependencies=[Depends(requiere("lector"))])
 ATIENDE = requiere("operador")  # abrir, gestionar y cerrar: operador o administrador
@@ -102,6 +105,39 @@ def listar(estado: str | None = None, conn: sqlite3.Connection = Depends(get_db)
 @router.get("/propuestas")
 def listar_propuestas(conn: sqlite3.Connection = Depends(get_db)):
     return propuestas(conn)
+
+
+class Descarte(BaseModel):
+    motivo: str = Field(min_length=3, max_length=300, description="Ej. falso positivo, mantenimiento programado")
+
+
+@router.post("/propuestas/{event_id}/descartar")
+def descartar_propuesta(event_id: int, datos: Descarte, u: dict = Depends(ATIENDE),
+                        conn: sqlite3.Connection = Depends(get_db)):
+    """Una persona revisó la propuesta y decidió que no amerita incidente (queda registrado quién y por qué)."""
+    ev = conn.execute("SELECT id, revisado_en FROM events WHERE id = ?", (event_id,)).fetchone()
+    if ev is None:
+        raise HTTPException(404, f"No existe el evento {event_id}")
+    if ev["revisado_en"]:
+        raise HTTPException(409, "Esta propuesta ya fue revisada")
+    if conn.execute("SELECT 1 FROM incidents WHERE event_id = ?", (event_id,)).fetchone():
+        raise HTTPException(409, "El evento ya tiene un incidente")
+    conn.execute(f"UPDATE events SET revisado_por = ?, revisado_en = {AHORA_UTC} WHERE id = ?",
+                 (f"{u['usuario']}: {datos.motivo}", event_id))
+    conn.commit()
+    return {"ok": True}
+
+
+@router.get("/exportar.csv")
+def exportar(conn: sqlite3.Connection = Depends(get_db)):
+    """Todos los incidentes en CSV (para informes o Excel)."""
+    columnas = ["id", "titulo", "equipo", "componente", "severidad", "estado", "responsable", "abierto_en",
+                "cerrado_en", "minutos_abierto", "sla_minutos", "sla_vencido", "recuperado_en", "causa", "solucion"]
+    filas = [_con_sla(dict(r)) for r in conn.execute(
+        "SELECT i.*, d.nombre AS equipo, e.componente FROM incidents i LEFT JOIN devices d ON d.id = i.device_id "
+        "LEFT JOIN events e ON e.id = i.event_id ORDER BY i.id")]
+    return Response(content=a_csv(columnas, filas), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="incidentes_noc.csv"'})
 
 
 @router.get("/{incident_id}")

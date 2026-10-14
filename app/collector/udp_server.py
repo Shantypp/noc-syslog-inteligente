@@ -17,6 +17,9 @@ from app.database import get_connection
 
 log = logging.getLogger("noc.udp")
 
+# Estado del receptor (lo muestra la pantalla Configuración y la Ayuda)
+ESTADO = {"activo": False, "host": None, "puerto": None, "error": None}
+
 
 class ReceptorSyslog(asyncio.DatagramProtocol):
     """Se llama una vez por cada paquete UDP recibido."""
@@ -37,11 +40,14 @@ async def iniciar_receptor_udp():
     """Abre el puerto UDP. Devuelve el transporte (para cerrarlo al apagar) o None."""
     host = os.getenv("SYSLOG_UDP_HOST", "127.0.0.1")
     puerto = int(os.getenv("SYSLOG_UDP_PORT", "5514"))
+    ESTADO.update(host=host, puerto=puerto, activo=False, error=None)
     loop = asyncio.get_running_loop()
     try:
         transporte, _ = await loop.create_datagram_endpoint(ReceptorSyslog, local_addr=(host, puerto))
     except OSError as e:
         log.error("No se pudo abrir UDP %s:%s (%s). ¿Hay otro servidor abierto?", host, puerto, e)
+        ESTADO["error"] = f"No se pudo abrir el puerto UDP {puerto}: ¿hay otro servidor del NOC abierto?"
         return None
     log.info("Receptor Syslog escuchando en udp://%s:%s", host, puerto)
+    ESTADO["activo"] = True
     return transporte

@@ -31,18 +31,25 @@ USUARIOS_LABORATORIO = [
 ]
 
 
+def insertar_equipos_simulados(conn) -> int:
+    """Inserta los equipos simulados que falten en esa conexión. Devuelve cuántos se insertaron."""
+    antes = conn.total_changes
+    # Se omite si ya existe la IP o un equipo con ese nombre (se puede ejecutar varias veces)
+    for nombre, ip, *resto in EQUIPOS_SIMULADOS:
+        conn.execute(
+            "INSERT INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, origen) "
+            "SELECT ?, ?, ?, ?, ?, ?, 'simulado' WHERE NOT EXISTS "
+            "(SELECT 1 FROM devices WHERE ip = ? OR nombre = ? COLLATE NOCASE)",
+            (nombre, ip, *resto, ip, nombre))
+    conn.commit()
+    return conn.total_changes - antes
+
+
 def cargar_semilla() -> int:
     """Inserta los equipos simulados que falten. Devuelve cuántos se insertaron."""
     init_db()
     with get_connection() as conn:
-        antes = conn.total_changes
-        # INSERT OR IGNORE: si la IP ya existe, la omite (se puede ejecutar varias veces)
-        conn.executemany(
-            "INSERT OR IGNORE INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, origen) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'simulado')",
-            EQUIPOS_SIMULADOS,
-        )
-        return conn.total_changes - antes
+        return insertar_equipos_simulados(conn)
 
 
 def cargar_usuarios(clave: str | None = None) -> int:
