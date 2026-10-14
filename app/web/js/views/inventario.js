@@ -3,7 +3,7 @@
  * Solo los equipos registrados aquí pueden enviar Syslog (lista permitida de fuentes).
  */
 import { api } from "../api.js";
-import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar, puede, avisoRol, montar } from "../ui.js";
+import { el, fecha, chip, tabla, intentar, encabezado, formulario, confirmar, puede, avisoRol, enlaceEquipo, montar } from "../ui.js";
 
 export const titulo = "Inventario de equipos";
 export const icono = "inventario";
@@ -47,7 +47,7 @@ export async function render(cont) {
     const equipos = await intentar(() => api("/api/devices")) || [];
     lista.replaceChildren(tabla([
       { titulo: "ID", valor: (d) => d.id, clase: "num" },
-      { titulo: "Equipo", valor: (d) => el("strong", {}, d.nombre), clase: "nowrap" },
+      { titulo: "Equipo", valor: (d) => enlaceEquipo(d.id, d.nombre), clase: "nowrap" },
       { titulo: "IP", valor: (d) => d.ip, clase: "num" },
       { titulo: "Marca", valor: (d) => d.marca },
       { titulo: "Modelo", valor: (d) => d.modelo || "—" },
@@ -59,12 +59,12 @@ export async function render(cont) {
       { titulo: "", valor: (d) => !puede("administrador") ? "" : el("div", { class: "acciones" },
           el("button", { class: "pequeno secundario", onclick: () => guardar(d) }, "Editar"),
           el("button", { class: "pequeno peligro", onclick: () => eliminar(d) }, "Eliminar")) },
-    ], equipos, "No hay equipos registrados. Use el botón Registrar equipo o ejecute: python -m app.seed"));
+    ], equipos, "No hay equipos registrados. Use el botón Registrar equipo o cargue la demostración en Configuración."));
   }
 
   montar(cont, 
     encabezado("Administración", "Inventario de equipos",
-      "Equipos de red autorizados. Solo los equipos registrados aquí pueden enviar eventos al NOC (lista permitida de fuentes).",
+      "Equipos de red autorizados. Solo los equipos registrados aquí pueden enviar eventos al NOC (lista permitida de fuentes). Clic en el nombre para ver la ficha del equipo.",
       puede("administrador") ? el("button", { onclick: () => guardar(null) }, "Registrar equipo") : null),
     puede("administrador") ? null : avisoRol("Puede consultar el inventario; registrar, editar o eliminar equipos requiere el rol Administrador."),
     el("section", { class: "panel" }, lista),

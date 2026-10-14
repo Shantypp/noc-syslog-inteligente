@@ -10,6 +10,9 @@ Tablas (ver docs / vault "Modelo de datos"):
   - users          : usuarios con rol (lector, operador, administrador) y contraseña cifrada
   - sessions       : sesiones activas (solo se guarda la huella del token, nunca el token)
   - auth_log       : intentos de inicio de sesión (exitosos y fallidos)
+  - settings       : configuración editable desde la aplicación (umbrales, horario, retención)
+  - detecciones    : patrones detectados automáticamente (fuerza bruta, fuera de horario...)
+  - ingest_stats   : contadores diarios de lo que pasó con cada mensaje recibido
 
 Ejecutar directamente para crear la base de datos:
     python -m app.database
@@ -167,11 +170,57 @@ CREATE TABLE IF NOT EXISTS auth_log (
     fecha           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_auth_log ON auth_log(usuario, fecha);
+
+-- ---------------------------------------------------------------
+-- Configuración editable desde la aplicación (valores por defecto en .env)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS settings (
+    clave           TEXT    PRIMARY KEY,
+    valor           TEXT    NOT NULL,
+    actualizado_por TEXT,
+    actualizado_en  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- ---------------------------------------------------------------
+-- Detecciones automáticas (correlación de eventos)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS detecciones (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    regla           TEXT    NOT NULL,             -- fuerza_bruta, fuera_de_horario, puerto_inestable...
+    device_id       INTEGER REFERENCES devices(id) ON DELETE CASCADE,
+    clave           TEXT,                         -- qué agrupa (ej. IP atacante o puerto)
+    titulo          TEXT    NOT NULL,
+    detalle         TEXT,
+    severidad       INTEGER NOT NULL CHECK (severidad BETWEEN 0 AND 7),
+    cantidad        INTEGER NOT NULL DEFAULT 1,
+    ultimo_evento_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    estado          TEXT    NOT NULL DEFAULT 'nueva' CHECK (estado IN ('nueva', 'incidente', 'descartada')),
+    incident_id     INTEGER REFERENCES incidents(id) ON DELETE SET NULL,
+    revisado_por    TEXT,
+    motivo          TEXT,
+    creada_en       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    actualizada_en  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_detecciones ON detecciones(estado, regla, device_id);
+
+-- ---------------------------------------------------------------
+-- Contadores de ingreso por día (sobreviven a reinicios del servidor)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ingest_stats (
+    dia             TEXT    NOT NULL,             -- AAAA-MM-DD (UTC)
+    resultado       TEXT    NOT NULL,
+    cantidad        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (dia, resultado)
+);
 """
 
 # Columnas agregadas después de la primera versión. Si la base de datos ya existía,
 # se añaden sin borrar datos (migración simple).
-COLUMNAS_NUEVAS = {"events": ["componente TEXT", "estado_componente TEXT"]}
+COLUMNAS_NUEVAS = {
+    "events": ["componente TEXT", "estado_componente TEXT",
+               "revisado_por TEXT", "revisado_en TEXT"],   # propuesta revisada y descartada por una persona
+    "incidents": ["recuperado_en TEXT"],                   # el componente afectado volvió a funcionar
+}
 
 
 def init_db(db_path: str | None = None) -> None:
@@ -184,6 +233,9 @@ def init_db(db_path: str | None = None) -> None:
                 if col.split()[0] not in existentes:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col}")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_events_componente ON events(device_id, componente)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_detecciones_device ON detecciones(device_id, estado)")
+        # WAL: el receptor puede escribir eventos mientras la interfaz lee, sin bloquearse
+        conn.execute("PRAGMA journal_mode = WAL")
 
 
 def get_db():

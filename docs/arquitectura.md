@@ -16,6 +16,9 @@ flowchart LR
         P["collector/parser<br/>RFC 3164 / 5424"]
         V["security/controls<br/>allowlist · dedup · rate limit · sospechosos"]
         POL["incidents/policy<br/>sev 0–2 → propuesta · SLA"]
+        DET["incidents/detecciones<br/>fuerza bruta · fuera de horario · flapping · tormenta"]
+        COR["incidents/correlacion<br/>evento → incidente abierto · recuperado"]
+        CFG["config<br/>parámetros editables"]
         API["api/* (REST)"]
         GEN["configgen/templates"]
         CON["console/simulator"]
@@ -27,6 +30,8 @@ flowchart LR
     C & F & H -->|Syslog UDP| R
     A --> I
     R & I --> P --> V --> DB
+    V --> DET & COR --> DB
+    CFG -.umbrales.-> V & POL & DET
     DB --> POL
     DB <--> API <--> UI
     UI --> GEN

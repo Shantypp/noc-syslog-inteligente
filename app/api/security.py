@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 from app.collector import ingest
 from app.console import audit
 from app.database import get_db
-from app.incidents.policy import UMBRAL_INCIDENTE
+from app import config
+from app.incidents.policy import umbral_incidente
 from app.security.auth import requiere
 from app.security.controls import es_sospechoso, limpiar_mensaje
 
@@ -34,7 +35,10 @@ class Texto(BaseModel):
 @router.get("")
 def estado(conn: sqlite3.Connection = Depends(get_db)):
     uno = lambda sql, *p: conn.execute(sql, p).fetchone()[0]  # noqa: E731
-    est = ingest.estadisticas
+    est = ingest.totales(conn)
+    umbral = umbral_incidente(conn)
+    ventana, limite = config.obtener(conn, "ventana_dedup_s"), config.obtener(conn, "limite_por_minuto")
+    detecciones = uno("SELECT COUNT(*) FROM detecciones")
     integ = audit.verificar_integridad(conn)
     fuentes = uno("SELECT COUNT(*) FROM devices")
     sospechosos = uno("SELECT COUNT(*) FROM events WHERE sospechoso = 1")
@@ -54,26 +58,27 @@ def estado(conn: sqlite3.Connection = Depends(get_db)):
         "flujo": FLUJO,
         "controles": [
             c(1, "Fuentes autorizadas", "Solo se aceptan mensajes de equipos del inventario (allowlist por IP u hostname en laboratorio).",
-              f"{fuentes} fuentes autorizadas · {est['fuente_no_autorizada']} mensajes rechazados"),
+              f"{fuentes} fuentes autorizadas · {est.get('fuente_no_autorizada', 0)} mensajes rechazados"),
             c(2, "Centralización de logs", "Colector único: receptor UDP + importación de archivos.",
               f"{total_eventos} eventos centralizados"),
             c(3, "Hora sincronizada (NTP)", "Se guarda la hora del colector (UTC) y la del equipo; las plantillas incluyen timestamps y NTP.",
               "recibido_en (UTC) + timestamp_equipo", "parcial"),
-            c(4, "Severidades que generan alerta/incidente", f"Severidad 0–{UMBRAL_INCIDENTE} genera PROPUESTA de incidente; un humano decide.",
+            c(4, "Severidades que generan alerta/incidente", f"Severidad 0–{umbral} genera PROPUESTA de incidente; un humano decide.",
               f"{total_incidentes} incidentes creados por personas"),
-            c(5, "Accesos, fallos de autenticación y cambios", "Se clasifican y filtran (LOGIN_FAILED, CONFIG_I, CMDRECORD...).",
-              f"{fallos_login} fallos de login registrados"),
+            c(5, "Accesos, fallos de autenticación y cambios", "Se clasifican y filtran (LOGIN_FAILED, CONFIG_I, CMDRECORD...). Detección automática de fuerza bruta y de cambios fuera de horario.",
+              f"{fallos_login} fallos de login registrados · {detecciones} detecciones automáticas"),
             c(6, "Comandos y cambios no autorizados", "Toda la actividad de consola queda auditada; los cambios solo como propuesta.",
               f"{bloqueados} comandos bloqueados o no verificados"),
             c(7, "Listas permitidas de dispositivos y comandos", "Allowlist por marca/modo; denegar por defecto.",
               "4 perfiles: Cisco IOS XE, FortiGate, Huawei VRP, ROMMON"),
             c(8, "Roles, retención, integridad, respaldo, transporte seguro",
               "Inicio de sesión con roles (lector, operador, administrador) y bloqueo tras 5 intentos fallidos; "
-              "hash SHA-256 por registro de auditoría; respaldo con scripts/backup_db.py. TLS y retención en Corte 3.",
+              "hash SHA-256 por registro de auditoría; respaldo descargable desde Configuración; retención automática de eventos "
+              f"({config.obtener(conn, 'dias_retencion')} días). TLS en Corte 3.",
               f"{usuarios} usuarios · {fallidos} inicios de sesión fallidos · integridad {integ['integros']}/{integ['total']}" + (f" · registros alterados: {integ['alterados']}" if integ['alterados'] else ""), "parcial"),
             c(9, "Deduplicación, límite de frecuencia y tormentas",
-              f"Ventana de {ingest.VENTANA_DEDUP} s y máximo {ingest.limitador_global.limite} mensajes/min.",
-              f"{agrupados} mensajes repetidos agrupados · {est['limitado']} descartados por límite"),
+              f"Ventana de {ventana} s y máximo {limite} mensajes/min POR EQUIPO (uno ruidoso no silencia a los demás).",
+              f"{agrupados} mensajes repetidos agrupados · {est.get('limitado', 0)} descartados por límite"),
             c(10, "Logs = datos no confiables", "Nunca se ejecutan ni se envían como instrucción; se muestran como texto; patrones de inyección se marcan.",
               f"{sospechosos} eventos sospechosos marcados (guardados como evidencia)"),
             c(11, "Aprobación humana antes de cambios", "Solo un administrador aprueba, y nunca su propia propuesta (identidad tomada del inicio de sesión). En el MVP la ejecución es simulada.",
@@ -81,9 +86,9 @@ def estado(conn: sqlite3.Connection = Depends(get_db)):
         ],
         "configuracion": {
             "udp": f"{os.getenv('SYSLOG_UDP_HOST', '127.0.0.1')}:{os.getenv('SYSLOG_UDP_PORT', '5514')}",
-            "ventana_dedup_s": ingest.VENTANA_DEDUP,
-            "rate_limit_min": ingest.limitador_global.limite,
-            "umbral_incidente": UMBRAL_INCIDENTE,
+            "ventana_dedup_s": ventana,
+            "rate_limit_min": limite,
+            "umbral_incidente": umbral,
         },
     }
 

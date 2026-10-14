@@ -1,5 +1,7 @@
 """utils.py — Funciones pequeñas compartidas por varios módulos."""
 
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 
 FORMATO_FECHA = "%Y-%m-%dT%H:%M:%SZ"  # mismo formato que usa SQLite en las tablas
@@ -32,3 +34,19 @@ def normalizar_fecha(valor: str) -> str:
 
 def de_texto(valor: str) -> datetime:
     return datetime.strptime(valor, FORMATO_FECHA).replace(tzinfo=timezone.utc)
+
+
+def celda_segura(valor) -> str:
+    """Evita 'inyección de fórmulas' si el CSV se abre en Excel (=, +, -, @ al inicio)."""
+    texto = "" if valor is None else str(valor)
+    return "'" + texto if texto[:1] in ("=", "+", "-", "@") else texto
+
+
+def a_csv(columnas: list[str], filas) -> str:
+    """Arma un CSV (con BOM para que Excel muestre bien las tildes) a partir de filas tipo diccionario."""
+    salida = io.StringIO()
+    w = csv.writer(salida)
+    w.writerow(columnas)
+    for f in filas:
+        w.writerow([celda_segura(f[c]) for c in columnas])
+    return "\ufeff" + salida.getvalue()

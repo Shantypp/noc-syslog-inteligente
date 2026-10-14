@@ -3,18 +3,21 @@ api/devices.py — Endpoints del inventario de dispositivos (RF-01).
 
     GET    /api/devices        listar (filtros opcionales ?marca=&estado=)
     GET    /api/devices/{id}   ver uno
+    GET    /api/devices/{id}/resumen   ficha completa del equipo
     POST   /api/devices        crear
     PUT    /api/devices/{id}   editar (actualiza la fecha de actualización)
     DELETE /api/devices/{id}   eliminar
 """
 
 import sqlite3
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.database import get_db
 from app.models import Device, DeviceIn, EstadoDevice, Marca
 from app.security.auth import requiere
+from app.utils import ahora_utc, hace
 
 router = APIRouter(prefix="/api/devices", tags=["inventario"], dependencies=[Depends(requiere("lector"))])
 SOLO_ADMIN = [Depends(requiere("administrador"))]  # modificar el inventario
@@ -54,6 +57,42 @@ def listar(marca: Marca | None = None, estado: EstadoDevice | None = None,
 @router.get("/{device_id}", response_model=Device)
 def ver(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
     return _buscar(conn, device_id)
+
+
+@router.get("/{device_id}/resumen")
+def resumen(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
+    """
+    Ficha del equipo: TODO lo de un equipo en una sola respuesta (estado, partes con problema,
+    incidentes, detecciones, eventos recientes y actividad de las últimas 24 horas).
+    """
+    from app.api.dashboard import estado_equipos  # import local: evita importación circular
+    from app.api.events import enriquecer
+    from app.api.puertos import estado_componentes
+    from app.incidents.detecciones import listar as listar_detecciones
+
+    _buscar(conn, device_id)
+    equipo = next(e for e in estado_equipos(conn) if e["id"] == device_id)
+    por_hora = {r[0]: r[1] for r in conn.execute(
+        "SELECT strftime('%Y-%m-%dT%H', recibido_en), SUM(repeticiones) FROM events "
+        "WHERE device_id = ? AND recibido_en >= ? GROUP BY 1", (device_id, hace(horas=24)))}
+    ahora = ahora_utc()
+    horas = [(ahora - timedelta(hours=h)).strftime("%Y-%m-%dT%H") for h in range(23, -1, -1)]
+    return {
+        "equipo": equipo,
+        "componentes": estado_componentes(conn, device_id),
+        "incidentes": [dict(r) for r in conn.execute(
+            "SELECT i.id, i.titulo, i.severidad, i.estado, i.responsable, i.abierto_en, i.cerrado_en, i.recuperado_en "
+            "FROM incidents i WHERE i.device_id = ? ORDER BY i.estado = 'cerrado', i.id DESC LIMIT 20", (device_id,))],
+        "detecciones": listar_detecciones(conn, None, device_id, limite=20),
+        "eventos": [enriquecer(r) for r in conn.execute(
+            "SELECT e.*, d.nombre AS equipo, d.marca FROM events e LEFT JOIN devices d ON d.id = e.device_id "
+            "WHERE e.device_id = ? ORDER BY e.id DESC LIMIT 25", (device_id,))],
+        "actividad_24h": [{"inicio": f"{h}:00:00Z", "eventos": por_hora.get(h, 0)} for h in horas],
+        "por_severidad": [r[0] for r in conn.execute(
+            "SELECT COUNT(e.id) FROM (SELECT 0 AS s UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 "
+            "UNION SELECT 5 UNION SELECT 6 UNION SELECT 7) n LEFT JOIN events e ON e.severidad = n.s "
+            "AND e.device_id = ? AND e.recibido_en >= ? GROUP BY n.s ORDER BY n.s", (device_id, hace(horas=24)))],
+    }
 
 
 @router.post("", response_model=Device, status_code=status.HTTP_201_CREATED, dependencies=SOLO_ADMIN)

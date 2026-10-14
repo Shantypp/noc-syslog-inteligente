@@ -51,20 +51,32 @@ def huella_dedup(device_id: int, severidad: int, mensaje: str) -> str:
 
 
 class LimitadorTasa:
-    """Permite como máximo `limite` mensajes por cada ventana de 60 segundos."""
+    """
+    Permite como máximo `limite` mensajes por cada ventana de 60 segundos, POR FUENTE.
+    Cada equipo tiene su propio cupo: una tormenta de un router no silencia a los demás.
+    """
 
     def __init__(self, limite: int):
         self.limite = limite
-        self._inicio = time.monotonic()
-        self._contador = 0
+        self._ventanas: dict[str, list] = {}  # fuente -> [inicio, aceptados, rechazados]
         self._lock = threading.Lock()
 
-    def permitir(self) -> bool:
+    def permitir(self, fuente: str = "global") -> bool:
         with self._lock:
             ahora = time.monotonic()
-            if ahora - self._inicio >= 60:  # empieza un minuto nuevo
-                self._inicio, self._contador = ahora, 0
-            if self._contador >= self.limite:
+            ventana = self._ventanas.setdefault(fuente, [ahora, 0, 0])
+            if ahora - ventana[0] >= 60:  # empieza un minuto nuevo para esta fuente
+                ventana[:] = [ahora, 0, 0]
+            if ventana[1] >= self.limite:
+                ventana[2] += 1
                 return False
-            self._contador += 1
+            ventana[1] += 1
+            if len(self._ventanas) > 10_000:  # evita crecer sin límite con fuentes falsificadas
+                self._ventanas = {k: v for k, v in self._ventanas.items() if ahora - v[0] < 60}
             return True
+
+    def rechazados(self, fuente: str = "global") -> int:
+        """Mensajes descartados de esa fuente en el minuto actual (1 = acaba de empezar la tormenta)."""
+        with self._lock:
+            ventana = self._ventanas.get(fuente)
+            return ventana[2] if ventana else 0

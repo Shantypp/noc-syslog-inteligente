@@ -4,7 +4,28 @@ Formato basado en *Keep a Changelog*. Versiones según el plan del curso.
 
 ## [0.2.0] — MVP Corte 2
 
-### Agregado
+### Agregado — operación y facilidad de uso
+- **Instalación en 1 paso**: `iniciar.py` (multiplataforma) e `iniciar.bat` / `iniciar-red.bat` (doble clic en Windows). Crea el entorno, instala dependencias solo si cambiaron, crea `.env`, inicia y abre el navegador.
+- **Configuración inicial** en la aplicación: si no hay usuarios, se crea el primer administrador desde el navegador (una sola vez y solo desde el mismo computador), con opción de cargar la demostración.
+- **Detecciones automáticas** (tabla `detecciones`): fuerza bruta (por IP de origen, cuenta también los repetidos), cambio de configuración fuera de horario, puerto inestable (flapping), tormenta por equipo y manipulación en logs. Se revisan en la nueva pantalla *Detecciones*: abrir incidente o descartar con motivo.
+- **Correlación con incidentes**: los eventos nuevos de la misma parte del equipo se agregan al historial del incidente abierto (usuario "sistema"); si el componente vuelve a "Arriba", el incidente se marca *Recuperado* y se sugiere cerrarlo.
+- Bandeja **"Requiere su atención"** en el panel general, ordenada por prioridad y con enlace a la pantalla que resuelve cada asunto.
+- **Ficha de equipo** (`#equipo/ID`) con estado, componentes, incidentes, detecciones, actividad de 24 h y últimos eventos; los nombres de equipo son enlaces a su ficha.
+- Pantalla **Configuración** (administrador): parámetros editables sin reiniciar (tabla `settings`, con quién y cuándo), estado del colector UDP, respaldo descargable, retención y datos de demostración.
+- **Avisos en vivo** cada 15 s de eventos graves y detecciones nuevas, y contadores del menú actualizados (`/api/novedades`).
+- Eventos: búsqueda de texto, "Cargar más", filtros que se aplican solos y exportación CSV con los filtros actuales. Incidentes: exportación CSV y descarte de propuestas con motivo.
+- Página de **Ayuda**: guía por rol, cómo conectar equipos reales (Cisco, FortiGate, Huawei con la IP de este computador), severidades y preguntas frecuentes.
+- Contadores de ingreso persistentes por día (tabla `ingest_stats`) y retención automática al iniciar.
+- Diseño adaptable a celular.
+
+### Cambiado — operación y facilidad de uso
+- El límite de mensajes por minuto ahora es **por equipo**: una tormenta de un router ya no silencia a los demás.
+- La deduplicación ya no agrupa un puerto que cae, sube y vuelve a caer: cada cambio de estado se guarda.
+- Las propuestas excluyen los eventos de una parte del equipo que ya tiene incidente abierto e indican si "ya se recuperó".
+- Umbrales leídos de la configuración (antes constantes del `.env`).
+- Estado de puertos y componentes calculado con una sola consulta agrupada; SQLite en modo WAL (lecturas y escrituras simultáneas).
+
+### Agregado — funciones base del MVP
 - Interfaz web administrativa (HTML/CSS/JS sin frameworks), con menú en el orden de trabajo: Operación (panel general, eventos, incidentes), Administración (inventario, plantillas), Control de cambios (consola, auditoría) y Cumplimiento (política de seguridad).
 - Panel general con el flujo de trabajo del operador en 4 pasos y contadores de tareas pendientes en el menú.
 - Formularios propios (registrar equipo, abrir/gestionar/cerrar incidente, aprobar/rechazar cambios) en lugar de las ventanas del navegador.

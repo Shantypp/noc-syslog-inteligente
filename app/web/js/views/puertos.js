@@ -4,7 +4,7 @@
  * El estado actual de cada componente es el de su último evento.
  */
 import { api } from "../api.js";
-import { el, fecha, sevBadge, chip, tabla, encabezado, montar } from "../ui.js";
+import { el, fecha, sevBadge, chip, tabla, encabezado, enlaceEquipo, montar } from "../ui.js";
 
 export const titulo = "Puertos y componentes";
 export const icono = "puertos";
@@ -22,7 +22,7 @@ export async function render(cont) {
     resultado.replaceChildren(...(porEquipo.size ? [...porEquipo].map(([equipo, comps]) => {
       const malos = comps.filter((c) => c.con_problema);
       return el("section", { class: "panel equipo-puertos" },
-        el("h2", {}, equipo, el("small", {}, comps[0].marca),
+        el("h2", {}, enlaceEquipo(comps[0].device_id, equipo), el("small", {}, comps[0].marca),
           malos.length ? el("span", { class: "problemas" }, `${malos.length} con problema`) : el("span", { class: "ok-texto" }, "Sin problemas")),
         tabla([
           { titulo: "Componente", valor: (c) => el("strong", {}, c.componente), clase: "nowrap" },
@@ -31,7 +31,7 @@ export async function render(cont) {
           { titulo: "Severidad", valor: (c) => sevBadge(c.severidad) },
           { titulo: "Mensaje", valor: (c) => c.ultimo_mensaje, clase: "mensaje" },
           { titulo: "Historial", valor: (c) => `${c.eventos} evento(s) · ${c.problemas} problema(s)`, clase: "num" },
-          { titulo: "Incidente", valor: (c) => c.incidente_abierto ? el("a", { href: "#incidentes" }, `INC-${c.incidente_abierto}`) : "—" },
+          { titulo: "Incidente", valor: (c) => c.incidente_abierto ? el("a", { href: `#incidentes/${c.incidente_abierto}` }, `INC-${c.incidente_abierto}`) : "—" },
         ], comps));
     }) : [el("section", { class: "panel" }, el("p", { class: "total" },
       soloProblemas.checked ? "No hay componentes con problema." : "Aún no hay eventos que identifiquen puertos o componentes."))]));
