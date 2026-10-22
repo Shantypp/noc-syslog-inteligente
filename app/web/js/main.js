@@ -140,6 +140,7 @@ async function navegar() {
   if (detenerVista) detenerVista();
   detenerVista = null;
   dibujarMenu();
+  actualizarEntorno(); // por si cambió el inventario (equipos reales o simulados)
   document.title = `${vista.titulo} · NOC Syslog`;
   // La vista se dibuja en un contenedor propio. Si mientras tanto el usuario pidió otra
   // pantalla, esta se descarta: así una vista lenta no "pisa" a la más reciente.
@@ -149,6 +150,21 @@ async function navegar() {
   detenerVista = detener;
   document.getElementById("vista").replaceChildren(contenedor);
   window.scrollTo(0, 0);
+}
+
+/** La barra superior dice si los equipos del inventario son reales, simulados o ambos. */
+async function actualizarEntorno() {
+  const equipos = await api("/api/devices").catch(() => null);
+  if (!equipos) return;
+  const reales = equipos.filter((d) => d.origen === "real").length;
+  const simulados = equipos.length - reales;
+  const [texto, ayuda] = !equipos.length ? ["Entorno de laboratorio", "Aún no hay equipos en el inventario"]
+    : !simulados ? ["Entorno de laboratorio · equipos reales", `${reales} equipo(s) real(es) en el inventario`]
+    : !reales ? ["Entorno de laboratorio · datos simulados", "Los equipos y eventos de este laboratorio no son reales"]
+    : ["Entorno de laboratorio · equipos reales y simulados", `${reales} real(es) y ${simulados} simulado(s)`];
+  const etiqueta = document.getElementById("entorno");
+  etiqueta.textContent = texto;
+  etiqueta.title = ayuda;
 }
 
 function entrar(usuario) {

@@ -82,3 +82,14 @@ def test_importar_archivo_de_muestras(conn, sin_limite):
     assert resumen["duplicado"] == 1
     assert resumen["fuente_no_autorizada"] == 1
     assert resumen["invalido"] == 1
+
+
+def test_tormenta_de_un_cisco_real_se_agrupa(conn, sin_limite):
+    # Un Cisco real numera cada mensaje (100:, 101:, ...) y cambia los milisegundos:
+    # sin limpiar ese prefijo, ningún repetido se agruparía.
+    for i in range(50):
+        procesar_mensaje(conn, f"<187>{100 + i}: *Oct 21 17:19:{i:02d}.{i:03d} COT: %LINK-3-UPDOWN: "
+                               "Interface GigabitEthernet0/9, changed state to down", "192.0.2.1", sin_limite)
+    filas = conn.execute("SELECT repeticiones, componente FROM events").fetchall()
+    assert len(filas) == 1
+    assert filas[0]["repeticiones"] == 50 and filas[0]["componente"] == "GigabitEthernet0/9"
