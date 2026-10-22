@@ -8,6 +8,7 @@ y abrir:
     http://127.0.0.1:8000/docs   -> documentación interactiva de la API
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import (auth, configgen, console, dashboard, detecciones, devices, events, incidents, puertos,
                      security, sistema, usuarios)
 from app import VERSION, mantenimiento
+from app.collector import monitoreo
 from app.collector.udp_server import iniciar_receptor_udp
 from app.database import get_connection, init_db
 
@@ -38,7 +40,11 @@ async def ciclo_de_vida(app: FastAPI):
     transporte = None
     if os.getenv("SYSLOG_UDP_ENABLED", "1") == "1":
         transporte = await iniciar_receptor_udp()
+    # Ping periódico a los equipos reales: saber si están vivos aunque no envíen mensajes
+    tarea_ping = asyncio.create_task(monitoreo.ciclo()) if os.getenv("NOC_MONITOREO", "1") == "1" else None
     yield
+    if tarea_ping:
+        tarea_ping.cancel()
     if transporte:
         transporte.close()
 

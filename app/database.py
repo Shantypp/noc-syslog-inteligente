@@ -220,6 +220,9 @@ COLUMNAS_NUEVAS = {
     "events": ["componente TEXT", "estado_componente TEXT",
                "revisado_por TEXT", "revisado_en TEXT"],   # propuesta revisada y descartada por una persona
     "incidents": ["recuperado_en TEXT"],                   # el componente afectado volvió a funcionar
+    # Monitoreo por ping: ¿el equipo responde?, cuándo se revisó, latencia y fallos seguidos
+    "devices": ["alcanzable INTEGER", "ultimo_ping TEXT", "latencia_ms INTEGER",
+                "fallos_ping INTEGER NOT NULL DEFAULT 0"],
 }
 
 

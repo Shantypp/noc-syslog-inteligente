@@ -4,6 +4,7 @@ import os
 
 # En las pruebas no se abre el puerto UDP real
 os.environ["SYSLOG_UDP_ENABLED"] = "0"
+os.environ["NOC_MONITOREO"] = "0"  # ni hace ping a equipos reales
 
 import pytest
 from fastapi.testclient import TestClient

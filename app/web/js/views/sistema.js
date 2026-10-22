@@ -13,7 +13,7 @@ export const icono = "sistema";
 export const rolMinimo = "administrador";
 
 const GRUPOS = [
-  ["Incidentes y estado de los equipos", ["umbral_incidente", "minutos_sin_comunicacion"]],
+  ["Incidentes y estado de los equipos", ["umbral_incidente", "minutos_sin_comunicacion", "intervalo_ping_s"]],
   ["Control de tormentas", ["ventana_dedup_s", "limite_por_minuto"]],
   ["Detecciones automáticas", ["fuerza_bruta_intentos", "fuerza_bruta_ventana_min", "inestable_cambios", "inestable_ventana_min",
     "horario_inicio", "horario_fin", "desfase_utc"]],
