@@ -3,10 +3,10 @@ collector/monitoreo.py — ¿Está vivo cada equipo? (ping periódico)
 
 Syslog solo avisa cuando pasa algo: un equipo sano puede pasar horas en silencio y,
 mirando solo los mensajes, parecería "sin comunicación". Por eso el NOC le hace ping
-a cada equipo REAL del inventario cada N segundos (Configuración › intervalo_ping_s):
+a cada equipo REAL del inventario cada N segundos (Configuración › intervalo_ping_s, 10 por defecto):
 
   - si responde, está activo y se guarda la latencia;
-  - si falla 3 veces seguidas, se registra el evento "Conectividad (ping) · Caído"
+  - si falla 3 veces seguidas (unos 30 s), se registra el evento "Conectividad (ping) · Caído"
     (severidad 2), que entra al flujo normal: propuesta de incidente y detecciones;
   - cuando vuelve a responder, se registra "Conectividad (ping) · Arriba" y, si había
     un incidente abierto por esa caída, queda marcado como Recuperado.
@@ -110,7 +110,7 @@ async def ciclo() -> None:
     """Tarea de fondo: se inicia con el servidor y revisa los equipos cada N segundos."""
     log.info("Monitoreo por ping iniciado")
     while True:
-        intervalo = 30
+        intervalo = 10
         try:
             intervalo, equipos = _equipos_a_revisar()
             if equipos:
@@ -123,4 +123,4 @@ async def ciclo() -> None:
                     conn.close()
         except Exception:  # un error de una ronda no debe detener el monitoreo
             log.exception("Error en el monitoreo por ping")
-        await asyncio.sleep(intervalo or 30)
+        await asyncio.sleep(intervalo or 10)

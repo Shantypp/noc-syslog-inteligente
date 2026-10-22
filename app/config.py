@@ -39,7 +39,7 @@ PARAMETROS = {p.clave: p for p in [
               "Si un equipo no envía eventos en este tiempo (y no se le puede hacer ping), aparece sin comunicación.", 10, 1, 1440, "min", "NO_COMM_MINUTES"),
     Parametro("intervalo_ping_s", "Revisar los equipos reales con ping cada",
               "El NOC le hace ping a cada equipo REAL del inventario para saber si está vivo, aunque no envíe mensajes. "
-              "Si falla 3 veces seguidas se registra \"Conectividad · Caído\". 0 = desactivado.", 30, 0, 3600, "s", "PING_INTERVAL_SECONDS"),
+              "Si falla 3 veces seguidas (con 10 s, unos 30 s) se registra \"Conectividad · Caído\". 0 = desactivado.", 10, 0, 3600, "s", "PING_INTERVAL_SECONDS"),
     # --- Control de tormentas
     Parametro("ventana_dedup_s", "Ventana para agrupar mensajes repetidos",
               "Un mensaje idéntico del mismo equipo dentro de esta ventana se cuenta como repetición.", 60, 0, 3600, "s", "DEDUP_WINDOW_SECONDS"),
