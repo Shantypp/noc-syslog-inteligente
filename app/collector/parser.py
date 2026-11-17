@@ -98,7 +98,7 @@ def parse_syslog(crudo: str) -> dict:
     elif m3164 := _RFC3164.match(resto):
         resultado.update(
             timestamp_equipo=m3164.group(1),
-            hostname=m3164.group(2),
+            hostname=m3164.group(2).rstrip(":"),  # "R1:" (Cisco con timestamp RFC) -> "R1"
             mensaje=m3164.group(3).strip(),
             formato="RFC3164",
         )

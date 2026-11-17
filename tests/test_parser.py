@@ -92,3 +92,9 @@ def test_fortigate_formato_propio():
 def test_rfc3164_con_nombre_corto_no_se_confunde_con_cisco():
     r = parse_syslog("<187>Oct  3 10:15:02 CORE %LINK-3-UPDOWN: Interface Gi0/1 down")
     assert r["formato"] == "RFC3164" and r["hostname"] == "CORE"
+
+
+def test_hostname_con_dos_puntos_tras_fecha_rfc():
+    """Hallazgo de la prueba de carga: 'R1:' quedaba como nombre del equipo y no coincidía con el inventario."""
+    r = parse_syslog("<190>Nov 16 22:00:00 SIM-R1: %SYS-6-LOGGINGHOST: prueba")
+    assert r["hostname"] == "SIM-R1"
