@@ -222,7 +222,8 @@ COLUMNAS_NUEVAS = {
     "incidents": ["recuperado_en TEXT"],                   # el componente afectado volvió a funcionar
     # Monitoreo por ping: ¿el equipo responde?, cuándo se revisó, latencia y fallos seguidos
     "devices": ["alcanzable INTEGER", "ultimo_ping TEXT", "latencia_ms INTEGER",
-                "fallos_ping INTEGER NOT NULL DEFAULT 0"],
+                "fallos_ping INTEGER NOT NULL DEFAULT 0",
+                "ssh_habilitado INTEGER NOT NULL DEFAULT 0"],  # lista de hosts que se gestionan por SSH real
 }
 
 

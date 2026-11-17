@@ -1,6 +1,8 @@
 /**
- * views/consola.js — Consola de equipos tipo PuTTY, SIMULADA y de solo lectura (RF-07).
+ * views/consola.js — Consola de equipos tipo PuTTY (RF-07).
  *
+ * Simulada por defecto. Si el equipo elegido es real y tiene "Gestión por SSH" habilitada,
+ * las consultas permitidas viajan al equipo por SSH desde el BACKEND (el navegador nunca ve la clave).
  * La decisión (permitido / bloqueado / propuesta / no verificado) la toma el BACKEND.
  * Si estuviera solo en JavaScript, cualquiera podría saltársela con F12.
  */
@@ -14,7 +16,8 @@ const PERFIL_POR_MARCA = { Cisco: "cisco_ios", Fortinet: "fortigate", Huawei: "h
 const CLASE = { BLOQUEADO: "t-bloqueado", PROPUESTA: "t-propuesta", NO_VERIFICADO: "t-noverif" };
 
 export async function render(cont) {
-  const [perfiles, equipos] = await Promise.all([api("/api/console/perfiles"), api("/api/devices").catch(() => [])]);
+  const [perfiles, equipos, estadoSsh] = await Promise.all([api("/api/console/perfiles"), api("/api/devices").catch(() => []),
+    api("/api/console/ssh").catch(() => ({ configurado: false }))]);
   const porId = Object.fromEntries(perfiles.map((p) => [p.id, p]));
 
   const selEquipo = el("select", {}, el("option", { value: "" }, "Sin equipo"), equipos.map((d) => el("option", { value: d.id }, `${d.nombre} · ${d.marca}`)));
@@ -23,6 +26,7 @@ export async function render(cont) {
   const prompt = el("span");
   const entrada = el("input", { autocomplete: "off", spellcheck: "false", "aria-label": "Comando" });
   const permitidos = el("ul", { class: "lista-comandos" });
+  const barra = el("div", { class: "barra-titulo" });
   const historial = [];
   let posHistorial = 0;
   let perfilAnterior = null; // para no repetir el aviso si el perfil no cambió
@@ -32,8 +36,20 @@ export async function render(cont) {
     salida.scrollTop = salida.scrollHeight;
   };
 
+  function equipoActual() { return equipos.find((x) => String(x.id) === selEquipo.value); }
+
+  function actualizarModo() {
+    const d = equipoActual();
+    const real = d && d.origen === "real" && d.estado === "activo" && d.ssh_habilitado && estadoSsh.configurado
+      && PERFIL_POR_MARCA[d.marca] === selPerfil.value;
+    barra.textContent = real ? `noc-console · SSH REAL · ${d.nombre} (${d.ip})` : "noc-console · simulación · solo lectura";
+    barra.classList.toggle("modo-real", !!real);
+    return real;
+  }
+
   function cambiarPerfil() {
     const p = porId[selPerfil.value];
+    const real = actualizarModo();
     prompt.textContent = p.prompt;
     // Clic en un comando permitido = se escribe en la consola (más fácil de usar)
     const nivel = { lector: 0, operador: 1, administrador: 2 };
@@ -42,12 +58,12 @@ export async function render(cont) {
       return el("li", {}, el("button", { type: "button", disabled: !autorizado, title: autorizado ? null : `Requiere el rol ${c.rol_nombre}`,
         onclick: () => { entrada.value = c.comando; entrada.focus(); } }, c.comando, autorizado ? null : el("span", { class: "bloqueado-rol" }, `  (requiere ${c.rol_nombre})`)));
     }));
-    if (p.id !== perfilAnterior) escribir(`Perfil activo: ${p.nombre}. Escriba "help" para ver los comandos permitidos.`, "t-info");
+    if (p.id !== perfilAnterior || real) escribir(`Perfil activo: ${p.nombre}${real ? " · las consultas se ejecutan en el equipo real por SSH" : ""}. Escriba "help" para ver los comandos permitidos.`, "t-info");
     perfilAnterior = p.id;
   }
 
   selEquipo.addEventListener("change", () => {
-    const d = equipos.find((x) => String(x.id) === selEquipo.value);
+    const d = equipoActual();
     if (d && PERFIL_POR_MARCA[d.marca] && !(d.marca === "Cisco" && selPerfil.value === "cisco_rommon")) selPerfil.value = PERFIL_POR_MARCA[d.marca];
     cambiarPerfil();
   });
@@ -77,11 +93,11 @@ export async function render(cont) {
 
   montar(cont, 
     encabezado("Control de cambios", "Consola de equipos",
-      "Consola de solo lectura, sin conexión a equipos reales (simulación). Los comandos de consulta se responden; los de cambio quedan como propuesta para aprobación; los peligrosos se bloquean. Todo queda registrado en Auditoría."),
+      `Simulada por defecto. En los equipos reales con "Gestión por SSH" habilitada (Inventario), las consultas permitidas se ejecutan en el equipo y los cambios aprobados se aplican por SSH. Los comandos de cambio quedan como propuesta; los peligrosos se bloquean. Todo queda registrado en Auditoría.${estadoSsh.configurado ? "" : " (SSH sin configurar: faltan SSH_USUARIO y SSH_CLAVE en .env)"}`),
     el("div", { class: "filtros" }, el("label", {}, "Equipo", selEquipo), el("label", {}, "Perfil / modo del equipo", selPerfil)),
     el("div", { class: "grid-consola" },
       el("div", { class: "terminal", onclick: () => entrada.focus() },
-        el("div", { class: "barra-titulo" }, "noc-console · simulación · solo lectura"),
+        barra,
         salida,
         el("div", { class: "linea-entrada" }, prompt, entrada)),
       el("section", { class: "panel" },
@@ -90,7 +106,7 @@ export async function render(cont) {
         permitidos,
         el("h2", {}, "Qué significa cada respuesta"),
         el("div", { class: "leyenda" },
-          el("div", {}, chip("PERMITIDO"), "Consulta autorizada: se muestra la salida simulada."),
+          el("div", {}, chip("PERMITIDO"), "Consulta autorizada: salida simulada, o la del equipo real si está en modo SSH."),
           el("div", {}, chip("PROPUESTA"), "Comando de cambio: no se ejecuta; lo aprueba un administrador distinto (el Lector no puede proponer)."),
           el("div", {}, chip("BLOQUEADO"), "Destructivo, encadenado o desconocido: se deniega."),
           el("div", {}, chip("NO_VERIFICADO"), "Comando de otra marca o de otro modo del equipo.")))),

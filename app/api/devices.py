@@ -99,10 +99,10 @@ def resumen(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
 def crear(datos: DeviceIn, conn: sqlite3.Connection = Depends(get_db)):
     try:
         cur = conn.execute(
-            "INSERT INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, estado, origen) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, estado, origen, ssh_habilitado) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (datos.nombre, datos.ip, datos.marca.value, datos.modelo, datos.version_so,
-             datos.ubicacion, datos.estado.value, datos.origen.value),
+             datos.ubicacion, datos.estado.value, datos.origen.value, int(datos.ssh_habilitado and datos.origen.value == "real")),
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -116,9 +116,10 @@ def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(g
     try:
         conn.execute(
             "UPDATE devices SET nombre = ?, ip = ?, marca = ?, modelo = ?, version_so = ?, "
-            f"ubicacion = ?, estado = ?, origen = ?, actualizado_en = {AHORA_UTC} WHERE id = ?",
+            f"ubicacion = ?, estado = ?, origen = ?, ssh_habilitado = ?, actualizado_en = {AHORA_UTC} WHERE id = ?",
             (datos.nombre, datos.ip, datos.marca.value, datos.modelo, datos.version_so,
-             datos.ubicacion, datos.estado.value, datos.origen.value, device_id),
+             datos.ubicacion, datos.estado.value, datos.origen.value,
+             int(datos.ssh_habilitado and datos.origen.value == "real"), device_id),
         )
         conn.commit()
     except sqlite3.IntegrityError:

@@ -1,8 +1,10 @@
 """
-api/console.py — Consola simulada y auditoría (RF-07, RF-08, HU-05).
+api/console.py — Consola de equipos (simulada o SSH real) y auditoría (RF-07, RF-08, HU-05).
 
     GET  /api/console/perfiles              perfiles disponibles y su lista permitida
-    POST /api/console/ejecutar              evaluar un comando (siempre queda auditado)
+    GET  /api/console/ssh                   ¿hay credenciales SSH en .env? (nunca se muestran)
+    POST /api/console/ejecutar              evaluar un comando (siempre queda auditado);
+                                            si el equipo tiene SSH habilitado, la consulta va al equipo real
     GET  /api/auditoria                     consultar la bitácora
     GET  /api/auditoria/exportar            descargar la bitácora en CSV
     GET  /api/auditoria/integridad          verificar que nadie alteró los registros
@@ -16,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from app.console import audit
+from app.console import audit, ssh
 from app.console.simulator import PERFILES, evaluar, rol_minimo
 from app.database import get_db
 from app.security.auth import NOMBRE_ROL, requiere
@@ -42,17 +44,37 @@ def perfiles():
                             for c in p["permitidos"]]} for k, p in PERFILES.items()]
 
 
+@router.get("/api/console/ssh")
+def estado_ssh():
+    return {"configurado": ssh.configurado()}
+
+
+def _equipo(conn, device_id: int | None) -> dict | None:
+    if device_id is None:
+        return None
+    fila = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+    if fila is None:
+        raise HTTPException(404, "El equipo no existe en el inventario")
+    return dict(fila)
+
+
 @router.post("/api/console/ejecutar")
 def ejecutar(datos: Comando, u: dict = Depends(requiere("lector")), conn: sqlite3.Connection = Depends(get_db)):
     if datos.perfil not in PERFILES:
         raise HTTPException(422, f"Perfil desconocido. Opciones: {', '.join(PERFILES)}")
-    if datos.device_id is not None and not conn.execute(
-            "SELECT 1 FROM devices WHERE id = ?", (datos.device_id,)).fetchone():
-        raise HTTPException(404, "El equipo no existe en el inventario")
+    equipo = _equipo(conn, datos.device_id)
+    real = ssh.habilitado(equipo) and ssh.PERFIL_POR_MARCA.get(equipo["marca"]) == datos.perfil
 
     r = evaluar(datos.perfil, datos.comando, u["rol"])  # la decisión depende del rol de la sesión
+    r["modo"] = "ssh" if real else "simulado"
     resultado = {"PERMITIDO": "Salida simulada mostrada",
                  "PROPUESTA": audit.PENDIENTE}.get(r["decision"], r["motivo"])
+    if real and r["decision"] == "PERMITIDO" and r["motivo"] != "Ayuda":
+        try:  # solo consultas de la lista permitida viajan al equipo real
+            r["salida"] = ssh.consultar(equipo, r["comando"])
+            resultado = f"Ejecutado por SSH en {equipo['nombre']} ({equipo['ip']})"
+        except ssh.ErrorSSH as e:
+            r["salida"], resultado = f"% {e}", f"Error SSH: {e}"
     # Se audita lo que el usuario escribió (recortado), no la versión normalizada
     r["audit_id"] = audit.registrar(conn, u["usuario"], datos.device_id,
                                     datos.comando.strip()[:200], r["decision"], resultado)
@@ -89,9 +111,24 @@ def integridad(conn: sqlite3.Connection = Depends(get_db)):
     return audit.verificar_integridad(conn)
 
 
+def _ejecutor_ssh(conn):
+    """Si el equipo de la propuesta se gestiona por SSH real, el cambio aprobado se aplica en él."""
+    def aplicar(fila: dict) -> str:
+        equipo = _equipo(conn, fila["device_id"]) if fila["device_id"] else None
+        if not ssh.habilitado(equipo):
+            return "ejecución SIMULADA: el equipo no se gestiona por SSH real"
+        try:
+            salida = ssh.aplicar_cambio(equipo, fila["comando"])
+            return f"aplicada por SSH en {equipo['nombre']} ({equipo['ip']}) · {salida[:600]}"
+        except ssh.ErrorSSH as e:
+            return f"NO aplicada: {e}"
+    return aplicar
+
+
 def _decidir(audit_id: int, datos: Revision, aprobar: bool, revisor: dict, conn) -> dict:
     try:
-        return audit.decidir(conn, audit_id, revisor["usuario"], aprobar, datos.motivo or "")
+        return audit.decidir(conn, audit_id, revisor["usuario"], aprobar, datos.motivo or "",
+                             ejecutor=_ejecutor_ssh(conn) if aprobar else None)
     except audit.DecisionInvalida as e:
         raise HTTPException(409, str(e))
 

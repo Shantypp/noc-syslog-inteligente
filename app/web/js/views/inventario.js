@@ -19,6 +19,9 @@ const CAMPOS = (d = {}) => [
   { id: "estado", etiqueta: "Estado administrativo", tipo: "select", valor: d.estado || "activo",
     opciones: opciones([["activo", "Activo"], ["inactivo", "Inactivo (mantenimiento)"], ["sin_comunicacion", "Sin comunicación"]]) },
   { id: "origen", etiqueta: "Origen de los datos", tipo: "select", valor: d.origen || "simulado", opciones: opciones([["simulado", "Simulado"], ["real", "Real"]]) },
+  { id: "ssh_habilitado", etiqueta: "Gestión por SSH desde la consola", tipo: "select", valor: d.ssh_habilitado ? "si" : "no",
+    opciones: opciones([["no", "No (consola simulada)"], ["si", "Sí (solo equipos reales; usuario y clave en .env)"]]),
+    ayuda: "Lista de hosts permitidos: solo los equipos marcados aquí reciben comandos reales por SSH." },
 ];
 
 export async function render(cont) {
@@ -32,6 +35,7 @@ export async function render(cont) {
     });
     if (!datos) return;
     for (const k of Object.keys(datos)) if (datos[k] === "") datos[k] = null;
+    datos.ssh_habilitado = datos.ssh_habilitado === "si";
     const r = await intentar(() => equipo
       ? api(`/api/devices/${equipo.id}`, { method: "PUT", body: datos })
       : api("/api/devices", { method: "POST", body: datos }), equipo ? "Equipo actualizado" : "Equipo registrado");
@@ -55,6 +59,7 @@ export async function render(cont) {
       { titulo: "Ubicación", valor: (d) => d.ubicacion || "—" },
       { titulo: "Estado", valor: (d) => chip(d.estado) },
       { titulo: "Origen", valor: (d) => chip(d.origen) },
+      { titulo: "SSH", valor: (d) => d.ssh_habilitado ? "Habilitado" : "—" },
       { titulo: "Actualizado", valor: (d) => fecha(d.actualizado_en), clase: "num" },
       { titulo: "", valor: (d) => !puede("administrador") ? "" : el("div", { class: "acciones" },
           el("button", { class: "pequeno secundario", onclick: () => guardar(d) }, "Editar"),
