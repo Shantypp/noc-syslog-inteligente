@@ -17,6 +17,8 @@ export const REGLAS = {
   puerto_inestable: ["Puerto inestable", "Un puerto o componente cambia de estado una y otra vez (flapping): cable, transceptor o energía."],
   tormenta: ["Tormenta de eventos", "Un equipo envía más mensajes por minuto de los permitidos: falla en cascada o ataque."],
   manipulacion: ["Manipulación en un log", "Un mensaje intenta dar órdenes (inyección). Se guardó como dato; no se ejecutó nada."],
+  cambio_sin_aprobacion: ["Cambio sin aprobación", "El equipo reportó un cambio de configuración que nadie aprobó en el NOC (persona o agente por fuera del flujo)."],
+  rafaga_comandos: ["Ráfaga de comandos", "Un usuario envió a la consola más comandos por minuto de los que escribe una persona: posible agente automatizado."],
 };
 
 export async function render(cont) {

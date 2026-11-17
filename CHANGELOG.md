@@ -2,6 +2,28 @@
 
 Formato basado en *Keep a Changelog*. Versiones según el plan del curso.
 
+## [1.0.0] — Corte 3 · 16-nov-2026
+
+### Agregado
+- **Monitoreo por ping** de los equipos reales (cada 10 s, caído tras 3 fallos, recuperación automática del incidente). Probado con 4 equipos Cisco reales el 21-oct.
+- **Analizador del formato real de Cisco** (número de secuencia, hora de encendido, hostname opcional) y FortiGate clave=valor.
+- **Gestor SSH por el backend** (Netmiko): lista de hosts permitidos ("Gestión por SSH" en el inventario), solo consultas permitidas y cambios aprobados por otro administrador; credenciales en `.env`; indicador "SSH REAL" en la consola.
+- **Alertas por Telegram**: caídas y recuperaciones, pérdida de la red de gestión, detecciones nuevas y eventos graves; anti-inundación; token enmascarado; botón de mensaje de prueba.
+- **Defensa frente a agentes automatizados o de IA**: pausa de la consola por ráfaga de comandos y detección "cambio sin aprobación" cuando un equipo informa un cambio que nadie aprobó en el NOC.
+- `iniciar-sistema.bat`: decide solo entre modo red y laboratorio.
+- Scripts de prueba: `prueba_carga.py`, `prueba_respaldo.py`, `prueba_despliegue.py`, con resultados en `docs/evidencias/`.
+- Documentación: manual técnico, manual de usuario, políticas Syslog verificadas, despliegue y rollback, bitácora de marcha blanca y hallazgos.
+
+### Cambiado
+- Un solo aviso "El NOC no está conectado a la red de gestión" en lugar de N equipos caídos (hallazgo H-07).
+- Receptor UDP: una conexión de base de datos reutilizada, registro por mensaje en DEBUG y búfer de 8 MB (de 10,3 % a 0 % de pérdida a 500 msg/s).
+- Un equipo con registros de auditoría no se puede eliminar (se marca Inactivo) para no alterar la evidencia.
+
+### Corregido
+- `backup_db.py`: nombres de respaldo repetidos en el mismo segundo, conexiones sin cerrar (archivo bloqueado en Windows) y archivos `-wal` viejos al restaurar.
+- El nombre "R1:" con dos puntos después de la fecha RFC no coincidía con el inventario.
+- Las pruebas no se encontraban al instalar Netmiko (paquete `tests` de textfsm).
+
 ## [0.2.0] — MVP Corte 2
 
 ### Agregado — operación y facilidad de uso

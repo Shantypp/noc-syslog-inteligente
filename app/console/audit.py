@@ -36,10 +36,13 @@ class DecisionInvalida(Exception):
     """La propuesta no existe, ya fue decidida o el aprobador no es válido."""
 
 
-def decidir(conn: sqlite3.Connection, audit_id: int, revisor: str, aprobar: bool, motivo: str = "") -> dict:
+def decidir(conn: sqlite3.Connection, audit_id: int, revisor: str, aprobar: bool, motivo: str = "",
+            ejecutor=None) -> dict:
     """
     Revisión humana de una PROPUESTA (pasos 4-8 del flujo seguro).
     Separación de funciones: quien propone NO puede aprobar su propia propuesta.
+    `ejecutor(fila) -> str` aplica el cambio aprobado (SSH real) y devuelve el resultado;
+    si no se indica, la ejecución es simulada (equipos simulados o sin SSH habilitado).
     """
     row = conn.execute("SELECT * FROM command_audit WHERE id = ?", (audit_id,)).fetchone()
     if row is None:
@@ -51,10 +54,15 @@ def decidir(conn: sqlite3.Connection, audit_id: int, revisor: str, aprobar: bool
         raise DecisionInvalida("Separación de funciones: quien propone no puede aprobar su propia propuesta")
 
     fila["aprobado_por"] = revisor
-    fila["resultado"] = ("APROBADA · ejecución SIMULADA: en el MVP no se envía nada a ningún equipo"
-                         if aprobar else f"RECHAZADA · {motivo or 'sin motivo'}")
-    conn.execute("UPDATE command_audit SET aprobado_por = ?, resultado = ?, hash_evidencia = ? WHERE id = ?",
-                 (fila["aprobado_por"], fila["resultado"], calcular_hash(fila), audit_id))
+    if not aprobar:
+        fila["resultado"] = f"RECHAZADA · {motivo or 'sin motivo'}"
+    elif ejecutor is None:
+        fila["resultado"] = "APROBADA · ejecución SIMULADA: el equipo no se gestiona por SSH real"
+    else:
+        fila["resultado"] = ("APROBADA · " + ejecutor(fila))[:1000]
+    conn.execute("UPDATE command_audit SET aprobado_por = ?, resultado = ?, hash_evidencia = ?, decidido_en = ? "
+                 "WHERE id = ?", (fila["aprobado_por"], fila["resultado"], calcular_hash(fila),
+                                  a_texto(ahora_utc()), audit_id))
     conn.commit()
     return fila
 

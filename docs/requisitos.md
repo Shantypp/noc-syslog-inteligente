@@ -1,4 +1,4 @@
-# Requisitos · NOC Syslog Inteligente v0.2.0
+# Requisitos · NOC Syslog Inteligente v1.0.0
 
 Prioridad **MoSCoW**: M = debe · S = debería · C = podría · W = no en esta versión.
 Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
@@ -41,6 +41,9 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | RF-13 | Relacionar los eventos con el incidente abierto de la misma parte del equipo y detectar su recuperación | M | Un "up" del componente agrega el evento al historial (usuario "sistema") y marca el incidente *Recuperado*; no se repite la propuesta | HU-15 | `test_operacion.py` | ✅ |
 | RF-14 | Configurar el sistema desde la aplicación: umbrales, horario laboral, respaldo, retención y datos de demostración | M | Cambio válido se aplica sin reiniciar y registra quién lo hizo; valores fuera de rango → 422; solo administrador | HU-16 | `test_operacion.py` | ✅ |
 | RF-15 | Priorizar el trabajo: bandeja "Requiere su atención", ficha por equipo, búsqueda de texto, exportación CSV y avisos en vivo | S | La bandeja ordena SLA vencidos, detecciones, propuestas, aprobaciones y equipos sin comunicación; `%` y `_` se buscan literalmente; CSV protegido contra fórmulas | HU-01, HU-02 | `test_operacion.py` | ✅ |
+| RF-16 | Saber si cada equipo real está vivo aunque no envíe mensajes, y no dar falsas alarmas si el NOC pierde la red | M | Ping cada 10 s; caído tras 3 fallos (≤ 30 s); sin red de gestión → un solo aviso y ningún equipo caído | HU-01 | `test_monitoreo.py`, `test_corte3.py` | ✅ (real: 5/5 caídas, 19–24 s) |
+| RF-17 | Gestionar equipos reales por SSH desde el backend con lista de hosts permitidos, roles, comandos permitidos y aprobación humana | M | Solo equipos reales con "Gestión por SSH"; consultas de la lista permitida; cambios solo tras aprobación de otro administrador; credenciales en `.env`; todo auditado | HU-05 | `test_corte3.py` | 🟡 (probado con Netmiko simulado; falta laboratorio) |
+| RF-18 | Avisar por Telegram las caídas, detecciones nuevas y eventos graves sin exponer el token | S | Token solo en `.env` y enmascarado; misma alerta no se repite en 5 min; máx. 20 por minuto | HU-01 | `test_corte3.py` | 🟡 (probado con Telegram simulado; falta bot real) |
 | RF-09 | Notificación por Telegram | W | Una alerta por incidente, token enmascarado, sin inundar | — | — | ⏳ |
 
 ## Requisitos no funcionales
@@ -51,8 +54,8 @@ Estado: ✅ implementado y probado · 🟡 parcial · ⏳ Corte 3.
 | RNF-02 | Usabilidad | Navegación comprensible | Menú lateral, bandeja priorizada, colores por severidad, textos en español, ayuda integrada por rol, diseño adaptable a celular | ✅ |
 | RNF-03 | Trazabilidad | Cada evento/acción con fecha y actor | `recibido_en`, `incident_log`, `command_audit` con usuario y fecha | ✅ |
 | RNF-04 | Confiabilidad | Errores controlados y bitácora | Validaciones (422/404/409), el receptor UDP no cae ante mensajes malos, `logging` | ✅ |
-| RNF-05 | Portabilidad | Instalación desde cero | `iniciar.bat` / `iniciar.py` (un paso), configuración inicial en la aplicación, README | ✅ |
-| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `web`; 138 pruebas | ✅ |
-| RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación (máx. 500), deduplicación, límite por equipo, consulta agrupada de componentes y SQLite en modo WAL | ✅ |
-| RNF-08 | Recuperación | Copia y rollback | Respaldo descargable desde la aplicación, `scripts/backup_db.py` (restauración), retención y tags de Git | ✅ |
-| RNF-09 | Seguridad IA | Logs nunca como instrucciones | Ver [politica-ia.md](politica-ia.md) | ✅ |
+| RNF-05 | Portabilidad | Instalación desde cero | `iniciar-sistema.bat` / `iniciar.py` (un paso), configuración inicial en la aplicación, README | ✅ |
+| RNF-06 | Mantenibilidad | Módulos y nombres claros | Paquetes `collector`, `security`, `incidents`, `configgen`, `console`, `api`, `notificaciones`, `web`; 185 pruebas | ✅ |
+| RNF-07 | Rendimiento | El tablero no se bloquea con el volumen de prueba | Índices, paginación, límite por equipo, WAL; prueba de carga: 3.000/3.000 a 500 msg/s, ~820 msg/s sostenidos, panel con mediana de 36 ms | ✅ |
+| RNF-08 | Recuperación | Copia y rollback | Respaldo y restauración probados (74/74 eventos); despliegue y rollback ensayados ([despliegue-rollback.md](despliegue-rollback.md)) | ✅ |
+| RNF-09 | Seguridad IA | Logs nunca como instrucciones; contener y detectar acciones de agentes | Ver [politica-ia.md](politica-ia.md): ráfaga de comandos, cambio sin aprobación | ✅ |

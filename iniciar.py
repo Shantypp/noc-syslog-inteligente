@@ -3,6 +3,7 @@ iniciar.py — Instala (si hace falta) y abre el NOC con UN solo comando.
 
     python iniciar.py              modo laboratorio: solo recibe Syslog de este computador
     python iniciar.py --red        recibe Syslog de los equipos de la red (routers, firewalls...)
+    python iniciar.py --auto       decide solo: modo red si estás conectado a los equipos reales
     python iniciar.py --puerto 8080    usar otro puerto web (por defecto 8000)
     python iniciar.py --desarrollo     recarga automática al editar el código
 
@@ -88,9 +89,28 @@ def ips_locales() -> list[str]:
         return []
 
 
+def red_de_equipos_conectada() -> bool:
+    """
+    ¿Este computador está en la misma red (/24) que algún equipo REAL del inventario?
+    Así el iniciador decide solo si abrir el NOC en modo red (laboratorio) o normal.
+    """
+    import sqlite3
+    bd = RAIZ / "data" / "noc.db"
+    if not bd.exists():
+        return False
+    try:
+        with sqlite3.connect(bd) as conn:
+            ips = [r[0] for r in conn.execute("SELECT ip FROM devices WHERE origen = 'real'")]
+    except sqlite3.Error:
+        return False
+    redes = {ip.rsplit(".", 1)[0] for ip in ips}
+    return any(ip.rsplit(".", 1)[0] in redes for ip in ips_locales())
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Inicia el NOC Syslog")
     p.add_argument("--red", action="store_true", help="recibir Syslog de equipos de la red (no solo de este computador)")
+    p.add_argument("--auto", action="store_true", help="usar el modo red solo si este computador está en la red de los equipos reales")
     p.add_argument("--puerto", type=int, default=8000, help="puerto de la interfaz web (por defecto 8000)")
     p.add_argument("--desarrollo", action="store_true", help="recarga automática al cambiar el código")
     p.add_argument("--sin-navegador", action="store_true", help="no abrir el navegador")
@@ -99,6 +119,10 @@ def main() -> None:
     os.chdir(RAIZ)  # las rutas relativas (data/noc.db, .env) siempre desde la carpeta del proyecto
     print("\n  NOC Syslog Inteligente\n  " + "=" * 40, flush=True)
     preparar_entorno()
+    if args.auto:
+        args.red = red_de_equipos_conectada()
+        paso("Conectado a la red de los equipos: modo red." if args.red
+             else "No estás en la red de los equipos: modo laboratorio (solo este computador).")
 
     url = f"http://127.0.0.1:{args.puerto}"
     if not puerto_libre(args.puerto):

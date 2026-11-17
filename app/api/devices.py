@@ -99,10 +99,10 @@ def resumen(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
 def crear(datos: DeviceIn, conn: sqlite3.Connection = Depends(get_db)):
     try:
         cur = conn.execute(
-            "INSERT INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, estado, origen) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO devices (nombre, ip, marca, modelo, version_so, ubicacion, estado, origen, ssh_habilitado) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (datos.nombre, datos.ip, datos.marca.value, datos.modelo, datos.version_so,
-             datos.ubicacion, datos.estado.value, datos.origen.value),
+             datos.ubicacion, datos.estado.value, datos.origen.value, int(datos.ssh_habilitado and datos.origen.value == "real")),
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -116,9 +116,10 @@ def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(g
     try:
         conn.execute(
             "UPDATE devices SET nombre = ?, ip = ?, marca = ?, modelo = ?, version_so = ?, "
-            f"ubicacion = ?, estado = ?, origen = ?, actualizado_en = {AHORA_UTC} WHERE id = ?",
+            f"ubicacion = ?, estado = ?, origen = ?, ssh_habilitado = ?, actualizado_en = {AHORA_UTC} WHERE id = ?",
             (datos.nombre, datos.ip, datos.marca.value, datos.modelo, datos.version_so,
-             datos.ubicacion, datos.estado.value, datos.origen.value, device_id),
+             datos.ubicacion, datos.estado.value, datos.origen.value,
+             int(datos.ssh_habilitado and datos.origen.value == "real"), device_id),
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -129,6 +130,12 @@ def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(g
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=SOLO_ADMIN)
 def eliminar(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
     _buscar(conn, device_id)  # 404 si no existe
+    # Hallazgo del Corte 3: al borrar un equipo, la base ponía en blanco el equipo de sus registros
+    # de auditoría y eso cambiaba la evidencia (el hash ya no coincidía). Un equipo con auditoría
+    # no se borra: se marca como inactivo y la evidencia queda intacta.
+    if conn.execute("SELECT 1 FROM command_audit WHERE device_id = ? LIMIT 1", (device_id,)).fetchone():
+        raise HTTPException(409, "Este equipo tiene registros de auditoría (evidencia con hash). No se puede eliminar: "
+                                 "márquelo como Inactivo en Editar.")
     conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
     conn.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

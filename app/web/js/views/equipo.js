@@ -47,6 +47,7 @@ export async function render(cont, param) {
       el("dl", { class: "ficha-datos" },
         [["Nombre (hostname)", e.nombre], ["Dirección IP", e.ip], ["Marca", e.marca], ["Modelo", e.modelo || "—"],
           ["Sistema operativo", e.version_so || "—"], ["Ubicación", e.ubicacion || "—"], ["Último evento", fecha(e.ultimo_evento)],
+          ["Conectividad", e.conectividad || (e.origen === "real" ? "Esperando el primer ping" : "Sin ping (equipo simulado)")],
           ["Origen de los datos", e.origen === "simulado" ? "Simulado (laboratorio)" : "Real"]]
           .map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", {}, v))))),
 

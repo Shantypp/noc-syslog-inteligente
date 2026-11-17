@@ -1,0 +1,51 @@
+{
+  "fecha": "2026-11-16T22:17:47",
+  "fuente": "copia de la base de datos de trabajo (data/noc.db)",
+  "conteos_antes": {
+    "devices": 4,
+    "events": 74,
+    "incidents": 1,
+    "detecciones": 4,
+    "command_audit": 4,
+    "users": 4,
+    "settings": 0
+  },
+  "respaldo_segundos": 0.17,
+  "respaldo_tamano_kb": 152,
+  "desastre": {
+    "eventos_tras_borrado": 0,
+    "integrity_check_tras_dano": "error: database disk image is malformed"
+  },
+  "restauracion_segundos": 0.18,
+  "conteos_despues": {
+    "devices": 4,
+    "events": 74,
+    "incidents": 1,
+    "detecciones": 4,
+    "command_audit": 4,
+    "users": 4,
+    "settings": 0
+  },
+  "conteos_iguales": true,
+  "verificacion_antes": {
+    "sqlite": "ok",
+    "auditoria": {
+      "total": 4,
+      "integros": 3,
+      "alterados": [
+        1
+      ]
+    }
+  },
+  "verificacion_despues": {
+    "sqlite": "ok",
+    "auditoria": {
+      "total": 4,
+      "integros": 3,
+      "alterados": [
+        1
+      ]
+    }
+  },
+  "exito": true
+}

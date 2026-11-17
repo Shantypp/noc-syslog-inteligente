@@ -12,6 +12,7 @@ Usa la API de respaldo de SQLite: la copia es consistente aunque la BD esté en 
 import argparse
 import shutil
 import sqlite3
+from contextlib import closing
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,10 +23,15 @@ from app.database import DB_PATH  # noqa: E402
 CARPETA = Path(DB_PATH).parent / "backups"
 
 
-def respaldar() -> Path:
+def respaldar(prefijo: str = "noc") -> Path:
     CARPETA.mkdir(parents=True, exist_ok=True)
-    destino = CARPETA / f"noc-{datetime.now():%Y%m%d-%H%M%S}.db"
-    with sqlite3.connect(DB_PATH) as origen, sqlite3.connect(destino) as copia:
+    destino = CARPETA / f"{prefijo}-{datetime.now():%Y%m%d-%H%M%S}.db"
+    n = 1
+    while destino.exists():  # hallazgo del Corte 3: dos respaldos en el mismo segundo se sobrescribían
+        destino = CARPETA / f"{prefijo}-{datetime.now():%Y%m%d-%H%M%S}-{n}.db"
+        n += 1
+    # closing(): "with sqlite3.connect()" NO cierra la conexión; en Windows el archivo quedaba bloqueado
+    with closing(sqlite3.connect(DB_PATH)) as origen, closing(sqlite3.connect(destino)) as copia:
         origen.backup(copia)
     return destino
 
@@ -34,10 +40,17 @@ def restaurar(archivo: str) -> None:
     respaldo = Path(archivo)
     if not respaldo.exists():
         sys.exit(f"No existe {respaldo}")
-    with sqlite3.connect(respaldo) as c:  # verifica que sea una BD válida antes de restaurar
+    with closing(sqlite3.connect(respaldo)) as c:  # verifica que sea una BD válida antes de restaurar
         if c.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             sys.exit("El respaldo está dañado; no se restaura")
-    previo = respaldar()  # rollback del rollback: se guarda el estado actual antes de reemplazarlo
+    try:
+        previo = respaldar("antes-de-restaurar")  # rollback del rollback: se guarda el estado actual antes de reemplazarlo
+    except sqlite3.DatabaseError:
+        previo = "no se pudo (la base actual está dañada)"
+    # Hallazgo del Corte 3: con el modo WAL, si quedaba el archivo noc.db-wal viejo, SQLite volvía
+    # a aplicar los cambios recientes (por ejemplo un borrado) sobre la copia restaurada.
+    for extra in ("-wal", "-shm"):
+        Path(f"{DB_PATH}{extra}").unlink(missing_ok=True)
     shutil.copyfile(respaldo, DB_PATH)
     print(f"Restaurado {respaldo} -> {DB_PATH} (estado anterior guardado en {previo})")
 

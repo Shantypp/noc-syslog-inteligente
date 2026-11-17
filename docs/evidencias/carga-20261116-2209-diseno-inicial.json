@@ -1,0 +1,29 @@
+{
+  "fecha": "2026-11-16T22:08:51",
+  "datos": "SIMULADOS",
+  "equipo": "portátil de pruebas, Windows, Python 3.14.5",
+  "A_rendimiento": {
+    "enviados": 3000,
+    "ritmo_objetivo_msg_s": 500,
+    "segundos_enviando": 6.0,
+    "guardados": 2597,
+    "perdidos_udp": 403,
+    "segundos_hasta_procesar_todo": 3.02,
+    "msg_por_segundo_procesados": 432.8
+  },
+  "C_panel_bajo_carga_ms": {
+    "consultas": 19,
+    "mediana": 99.3,
+    "p95": 111.2,
+    "maximo": 401.9
+  },
+  "B_tormenta": {
+    "enviados_por_SIM-R1": 2000,
+    "aceptados_SIM-R1": 0,
+    "descartados_por_limite": 679,
+    "detecciones_de_tormenta": 2,
+    "SIM-FW1_enviados_durante_la_tormenta": 50,
+    "SIM-FW1_guardados": 0
+  },
+  "servidor_sigue_respondiendo": true
+}

@@ -13,12 +13,34 @@ export const icono = "sistema";
 export const rolMinimo = "administrador";
 
 const GRUPOS = [
-  ["Incidentes y estado de los equipos", ["umbral_incidente", "minutos_sin_comunicacion"]],
+  ["Incidentes y estado de los equipos", ["umbral_incidente", "minutos_sin_comunicacion", "intervalo_ping_s"]],
   ["Control de tormentas", ["ventana_dedup_s", "limite_por_minuto"]],
   ["Detecciones automáticas", ["fuerza_bruta_intentos", "fuerza_bruta_ventana_min", "inestable_cambios", "inestable_ventana_min",
     "horario_inicio", "horario_fin", "desfase_utc"]],
+  ["Defensa frente a agentes automatizados o de IA", ["aprobacion_ventana_min", "consola_max_por_minuto"]],
+  ["Alertas por Telegram", ["telegram_severidad", "telegram_espera_min"]],
   ["Datos", ["dias_retencion"]],
 ];
+
+function panelTelegram(t) {
+  if (!t) return null;
+  async function probar() {
+    const r = await intentar(() => api("/api/sistema/telegram/prueba", { method: "POST" }));
+    if (r) aviso("Mensaje de prueba enviado. Revise el chat de Telegram.");
+  }
+  return el("section", { class: "panel" }, el("h2", {}, "Alertas por Telegram"),
+    el("dl", { class: "lista-datos" },
+      el("dt", {}, "Estado"),
+      el("dd", {}, el("span", { class: `semaforo ${t.configurado ? "verde" : "rojo"}` }),
+        t.configurado ? `Configurado (bot ${t.token} · chat ${t.chat_id})` : "Sin configurar: escriba TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID en el archivo .env y reinicie el NOC"),
+      el("dt", {}, "Qué se avisa"),
+      el("dd", {}, "Equipos que caen o vuelven (ping), pérdida de la red de gestión, detecciones nuevas y eventos graves."),
+      el("dt", {}, "Enviadas / descartadas"),
+      el("dd", {}, `${t.enviadas} enviadas · ${t.descartadas_por_inundacion} descartadas por anti-inundación (máx. ${t.max_por_minuto}/min) · ${t.errores} errores`),
+      t.ultimo_error ? [el("dt", {}, "Último error"), el("dd", {}, t.ultimo_error)] : null),
+    el("p", { class: "nota", style: "margin:12px 0" }, "El token nunca se muestra completo ni se guarda en la base de datos: vive solo en el archivo .env del servidor."),
+    el("button", { class: "secundario", disabled: !t.configurado, onclick: probar }, "Enviar mensaje de prueba"));
+}
 
 function estadoColector(s) {
   const udp = s.udp;
@@ -39,7 +61,8 @@ function estadoColector(s) {
 }
 
 export async function render(cont) {
-  const [estado, parametros] = await Promise.all([api("/api/sistema/estado").catch(() => null), api("/api/sistema/configuracion").catch(() => [])]);
+  const [estado, parametros, tg] = await Promise.all([api("/api/sistema/estado").catch(() => null),
+    api("/api/sistema/configuracion").catch(() => []), api("/api/sistema/telegram").catch(() => null)]);
   const porClave = Object.fromEntries(parametros.map((p) => [p.clave, p]));
   const entradas = {};
   const guardar = el("button", { disabled: true }, "Guardar cambios");
@@ -89,6 +112,7 @@ export async function render(cont) {
     encabezado("Administración", "Configuración del sistema",
       "Ajuste cómo trabaja el NOC sin editar archivos ni reiniciar. Cada cambio queda registrado con su usuario y la fecha."),
     estado ? estadoColector(estado) : el("div", { class: "aviso" }, "No se pudo consultar el estado del colector."),
+    panelTelegram(tg),
     el("section", { class: "panel" },
       el("h2", {}, "Parámetros", el("span", { style: "margin-left:auto" }, guardar)),
       el("div", { class: "parametros" }, filas)),

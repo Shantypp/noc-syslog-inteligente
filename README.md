@@ -1,9 +1,11 @@
-# NOC Syslog Inteligente · v0.2.0 (MVP)
+# NOC Syslog Inteligente · v1.0.0
 
 > Proyecto académico · **Administración y Gestión de Redes** · Periodo 2026-2
 > Docente: Ing. John Harold Pérez Calderón · **Trabajo realizado por Valentina Gutiérrez y Jhoan Santiago Pachón Perilla**
 >
-> ⚠️ **Todos los dispositivos y eventos de este repositorio son SIMULADOS** (IPs de documentación `192.0.2.0/24`, RFC 5737). No se conecta a ningún equipo real.
+> **Datos:** los ejemplos y las pruebas automáticas del repositorio son **SIMULADOS** (IPs de documentación `192.0.2.0/24`, RFC 5737).
+> La marcha blanca con equipos **reales** (4 Cisco del laboratorio, red 192.168.50.0/24) está en [docs/bitacora-marcha-blanca.md](docs/bitacora-marcha-blanca.md);
+> cada entrada dice si fue real o simulada. La base de datos con los datos reales no se sube.
 
 ![Panel general con la bandeja "Requiere su atención"](docs/evidencias/E05-dashboard.png)
 
@@ -24,7 +26,7 @@ Una red con equipos de varios fabricantes (Cisco, Fortinet, Huawei) produce even
 | 5 | Filtros por fecha, marca, equipo y severidad con total | RF-04 | Eventos |
 | 6 | Incidentes: propuesta por política, creación, asignación, seguimiento, SLA y cierre | RF-05 | Incidentes |
 | 7 | Generador de configuraciones Syslog comentadas para Cisco, Fortinet y Huawei | RF-06 | Plantillas de configuración |
-| 8 | Consola tipo PuTTY **simulada** de solo lectura con allowlist, bloqueos y modos (ROMMON) | RF-07 | Consola de equipos |
+| 8 | Consola tipo PuTTY con allowlist, bloqueos y modos (ROMMON): simulada por defecto y **SSH real por el backend** en los equipos habilitados | RF-07 | Consola de equipos |
 | 9 | Auditoría con hash SHA-256, revisión humana de propuestas y exportación CSV | RF-08 | Auditoría |
 | 10 | Política de defensa frente a agentes de IA con evidencia en vivo | RNF-09 | Política de seguridad |
 | 11 | **Inicio de sesión por usuario** y **roles** (lector, operador, administrador) que definen qué puede ver, atender y qué comandos puede aplicar | RF-10 | Usuarios |
@@ -36,7 +38,11 @@ Una red con equipos de varios fabricantes (Cisco, Fortinet, Huawei) produce even
 | 17 | **Configuración en la aplicación**: umbrales y horario laboral sin editar archivos; estado del colector; respaldo descargable; retención; datos de demostración | RF-14 | Configuración |
 | 18 | Búsqueda de texto, "Cargar más" y **exportación a Excel (CSV)** de eventos e incidentes; descartar propuestas con motivo | RF-15 | Eventos · Incidentes |
 | 19 | **Avisos en vivo** de eventos graves y detecciones nuevas (cada 15 s) y **Ayuda** integrada (por rol, conectar equipos, preguntas frecuentes) | RF-15, RNF-02 | Toda la interfaz · Ayuda |
-| 20 | **Instalación en 1 paso** (`iniciar.bat`) y **configuración inicial** en la app (crear el primer administrador sin tocar archivos) | RNF-05 | `iniciar.bat` |
+| 20 | **Instalación en 1 paso** (`iniciar-sistema.bat`) y **configuración inicial** en la app (crear el primer administrador sin tocar archivos) | RNF-05 | `iniciar-sistema.bat` |
+| 21 | **Monitoreo por ping** de los equipos reales cada 10 s: caída en ≤ 30 s y recuperación; un solo aviso si el NOC pierde la red de gestión | RF-16 | Panel general |
+| 22 | **Gestor SSH** (Netmiko): lista de hosts permitidos, consultas de solo lectura y cambios aprobados por otro administrador, todo auditado | RF-17 | Consola · Inventario |
+| 23 | **Alertas por Telegram** de caídas, detecciones nuevas y eventos graves, con anti-inundación y token fuera del código | RF-18 | Configuración |
+| 24 | **Defensa frente a agentes automatizados o de IA**: pausa por ráfaga de comandos y detección de cambios hechos por fuera del NOC | RNF-09 | Detecciones · Configuración |
 
 ## Arquitectura
 
@@ -109,6 +115,8 @@ Opcional: `python -m app.seed` carga equipos simulados y, si define `NOC_CLAVE_I
 | `NO_COMM_MINUTES` | `10` | Minutos sin eventos para "sin comunicación" |
 | `NOC_CLAVE_INICIAL` | *(vacío)* | Opcional: contraseña de los usuarios de laboratorio que crea `app.seed` |
 | `NOC_COOKIE_SEGURA` | `0` | `1` si se publica con HTTPS (la cookie de sesión solo viaja cifrada) |
+| `SSH_USUARIO` / `SSH_CLAVE` | *(vacío)* | Credenciales SSH de los equipos con "Gestión por SSH". Vacío = consola simulada |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | *(vacío)* | Alertas por Telegram. Vacío = desactivadas |
 
 El archivo `.env` **nunca** se sube a GitHub (está en `.gitignore`). Los umbrales (severidad de incidente, minutos sin comunicación, ventana de repetidos, límite por equipo, fuerza bruta, puerto inestable, horario laboral, zona horaria y días de retención) se cambian desde **Configuración** en la aplicación; el `.env` solo define el valor por defecto.
 
@@ -149,10 +157,20 @@ El **primer administrador** se crea en la pantalla de configuración inicial (so
 ## Pruebas
 
 ```powershell
-pytest -v
+python -m pytest -v
 ```
 
-138 pruebas automáticas: inicio de sesión y roles, configuración inicial, puertos y componentes, parser, inventario, ingreso y límite por equipo, detecciones, correlación, filtros y búsqueda, panel general, incidentes, configuración del sistema, respaldo y retención, consola, auditoría e IA. Ver [docs/pruebas.md](docs/pruebas.md).
+185 pruebas automáticas (en v0.2.0 eran 138): inicio de sesión y roles, parser (incluido el formato real de Cisco), inventario, ingreso y límite por equipo, monitoreo por ping, detecciones, correlación, panel, incidentes, configuración, respaldo, consola, gestor SSH y Telegram (simulados), red de gestión y defensa IA.
+
+Pruebas que se ejecutan aparte (datos simulados, base temporal; no tocan `data/noc.db`):
+
+```powershell
+python scripts/prueba_carga.py        # carga: 3.000 mensajes a 500 msg/s, tormenta y panel bajo carga
+python scripts/prueba_respaldo.py     # respaldo, daño de la base y restauración
+python scripts/prueba_despliegue.py   # v0.2.0 -> versión nueva -> rollback
+```
+
+Resultados y evidencias en [docs/pruebas.md](docs/pruebas.md) y `docs/evidencias/`.
 
 ## Respaldo y recuperación
 
@@ -164,7 +182,7 @@ python scripts/backup_db.py --listar
 python scripts/backup_db.py --restaurar data/backups/noc-....db   # con el servidor apagado
 ```
 
-Rollback de código: cada versión tiene etiqueta (`git switch --detach v0.1.0`).
+Despliegue y rollback paso a paso (ensayado): [docs/despliegue-rollback.md](docs/despliegue-rollback.md).
 
 ## Seguridad
 
@@ -175,19 +193,23 @@ Rollback de código: cada versión tiene etiqueta (`git switch --detach v0.1.0`)
 - Solo se aceptan eventos de equipos inventariados; deduplicación y límite por minuto **por equipo** contra tormentas (un equipo ruidoso no silencia a los demás).
 - Detecciones automáticas de fuerza bruta, cambios fuera de horario y manipulación; el sistema propone y una persona decide.
 - La configuración inicial solo se acepta una vez y desde el mismo computador.
-- Consola: denegar por defecto, sin conexión real; los cambios quedan como **propuesta** que otra persona debe aprobar.
+- Consola: denegar por defecto; los cambios quedan como **propuesta** que otra persona debe aprobar. El SSH real lo hace solo el backend, en los equipos de la lista permitida, con credenciales que viven en `.env`.
+- Telegram: token solo en `.env`, enmascarado en la API y borrado de los mensajes de error; anti-inundación.
+- Defensa IA: pausa por ráfaga de comandos y detección de cambios en los equipos que nadie aprobó en el NOC.
 - Auditoría con hash SHA-256 por registro y verificación de integridad.
 
 Política completa: [docs/politica-ia.md](docs/politica-ia.md).
 
-## Limitaciones conocidas (v0.2.0)
+## Limitaciones conocidas (v1.0.0)
 
-- Datos y equipos **simulados**; la consola no se conecta por SSH (previsto para v1.0.0 con backend autorizado).
+- UDP sin cifrado ni autenticación del origen; TLS (RFC 5425) no se probó porque los equipos del laboratorio no lo tienen.
+- Los equipos del laboratorio no tienen NTP (hora puesta a mano).
 - En laboratorio la aplicación usa HTTP; en producción debe publicarse con HTTPS (`NOC_COOKIE_SEGURA=1`).
-- La identificación de puertos y componentes se basa en patrones de texto de los mensajes de cada fabricante.
-- UDP sin cifrado ni autenticación del origen; TLS (RFC 5425) cuando los equipos lo soporten.
-- Los avisos en vivo funcionan mientras la aplicación está abierta en el navegador; notificaciones externas (correo/Telegram) previstas para v1.0.0.
+- FortiGate y Huawei solo se probaron con datos simulados; Cisco se probó con equipos reales.
+- El gestor SSH y las alertas de Telegram están probados con pruebas automáticas; la prueba con los equipos y el bot reales está pendiente (ver bitácora, P-01 a P-05).
 - Las detecciones usan reglas de texto y umbrales; no hay aprendizaje automático.
+
+Hallazgos y correcciones: [docs/hallazgos.md](docs/hallazgos.md).
 
 ## Estructura
 
@@ -199,20 +221,23 @@ app/
 ├── database.py        SQLite y modelo de datos
 ├── models.py          validaciones (Pydantic)
 ├── api/               endpoints REST
-├── collector/         parser, receptor UDP, ingreso y componentes afectados
-├── security/          controles (allowlist, dedup, rate limit, sospechosos) e inicio de sesión/roles
+├── collector/         parser, receptor UDP, ingreso, componentes y monitoreo por ping
+├── security/          controles, inicio de sesión y roles, defensa IA
 ├── incidents/         política (propuestas, SLA), detecciones automáticas y correlación
 ├── configgen/         plantillas Cisco / Fortinet / Huawei
-├── console/           consola simulada y auditoría
+├── console/           lista permitida, gestor SSH y auditoría
+├── notificaciones/    alertas por Telegram
 └── web/               HTML, CSS y JavaScript
 data/                  muestras SIMULADAS (la BD no se sube)
-docs/                  requisitos, historias, arquitectura, política, pruebas
-scripts/               generador de Syslog y respaldo
+docs/                  manuales, políticas Syslog, despliegue, bitácora, hallazgos, pruebas y evidencias
+scripts/               generador de Syslog, respaldo y pruebas de carga, respaldo y despliegue
 tests/                 pruebas automáticas (pytest)
-iniciar.py · iniciar.bat · iniciar-red.bat   arranque en 1 paso
+iniciar.py · iniciar-sistema.bat · iniciar.bat · iniciar-red.bat   arranque en 1 paso
 ```
 
 ## Autores, versión y licencia
 
-Trabajo realizado por **Valentina Gutiérrez y Jhoan Santiago Pachón Perilla** · versión **0.2.0** · Uso académico (ver [LICENSE](LICENSE)).
+Trabajo realizado por **Valentina Gutiérrez y Jhoan Santiago Pachón Perilla** · versión **1.0.0** · Uso académico (ver [LICENSE](LICENSE)).
 Desarrollado con asistencia de IA como herramienta; el código fue ejecutado, probado y revisado por los autores. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).
+
+Documentación: [manual técnico](docs/manual-tecnico.md) · [manual de usuario](docs/manual-usuario.md) · [políticas Syslog](docs/politicas-syslog.md) · [política IA](docs/politica-ia.md) · [despliegue y rollback](docs/despliegue-rollback.md) · [bitácora](docs/bitacora-marcha-blanca.md) · [hallazgos](docs/hallazgos.md) · [pruebas](docs/pruebas.md).

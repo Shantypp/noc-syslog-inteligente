@@ -65,10 +65,10 @@ async function dibujar(cont) {
 
     el("div", { class: "grid-2" },
       el("section", { class: "panel" }, el("h2", {}, "Estado de los equipos"),
-        el("p", { class: "nota" }, `Clic en un equipo para ver su ficha completa. "Sin comunicación" = no envía eventos hace más de ${d.umbral_sin_comunicacion_min} min.`),
+        el("p", { class: "nota" }, `Clic en un equipo para ver su ficha completa. A los equipos reales el NOC les hace ping para saber si están vivos; a los demás se les mira si enviaron eventos en los últimos ${d.umbral_sin_comunicacion_min} min.`),
         tabla([
           { titulo: "Equipo", valor: (e) => [enlaceEquipo(e.id, e.nombre), el("br"), el("small", {}, `${e.ip} · ${e.marca}`)], clase: "nowrap" },
-          { titulo: "Estado", valor: (e) => chip(e.estado_operativo) },
+          { titulo: "Estado", valor: (e) => [chip(e.estado_operativo), e.conectividad ? [el("br"), el("small", {}, e.conectividad)] : null] },
           { titulo: "Dónde está el problema", valor: (e) => e.componentes_con_problema.length
               ? el("a", { href: `#equipo/${e.id}`, class: "problemas" }, e.componentes_con_problema.join(", ")) : el("span", { class: "suave" }, "Sin problemas") },
           { titulo: "Último evento", valor: (e) => fecha(e.ultimo_evento), clase: "num" },

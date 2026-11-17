@@ -40,6 +40,7 @@ class DeviceIn(BaseModel):
     ubicacion: str | None = Field(default=None, max_length=100)
     estado: EstadoDevice = EstadoDevice.activo
     origen: Origen = Origen.simulado
+    ssh_habilitado: bool = Field(default=False, description="Gestión por SSH real (solo equipos reales)")
 
     @field_validator("nombre")
     @classmethod

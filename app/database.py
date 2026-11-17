@@ -220,6 +220,11 @@ COLUMNAS_NUEVAS = {
     "events": ["componente TEXT", "estado_componente TEXT",
                "revisado_por TEXT", "revisado_en TEXT"],   # propuesta revisada y descartada por una persona
     "incidents": ["recuperado_en TEXT"],                   # el componente afectado volvió a funcionar
+    "command_audit": ["decidido_en TEXT"],                 # cuándo se aprobó/rechazó (defensa: cambio sin aprobación)
+    # Monitoreo por ping: ¿el equipo responde?, cuándo se revisó, latencia y fallos seguidos
+    "devices": ["alcanzable INTEGER", "ultimo_ping TEXT", "latencia_ms INTEGER",
+                "fallos_ping INTEGER NOT NULL DEFAULT 0",
+                "ssh_habilitado INTEGER NOT NULL DEFAULT 0"],  # lista de hosts que se gestionan por SSH real
 }
 
 

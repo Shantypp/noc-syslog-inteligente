@@ -36,7 +36,10 @@ PARAMETROS = {p.clave: p for p in [
     Parametro("umbral_incidente", "Severidad que genera propuesta de incidente",
               "Los eventos con esta severidad o más graves (número menor) se proponen como incidente.", 2, 0, 7, "", "INCIDENT_MAX_SEVERITY"),
     Parametro("minutos_sin_comunicacion", "Minutos para \"sin comunicación\"",
-              "Si un equipo no envía eventos en este tiempo, aparece sin comunicación.", 10, 1, 1440, "min", "NO_COMM_MINUTES"),
+              "Si un equipo no envía eventos en este tiempo (y no se le puede hacer ping), aparece sin comunicación.", 10, 1, 1440, "min", "NO_COMM_MINUTES"),
+    Parametro("intervalo_ping_s", "Revisar los equipos reales con ping cada",
+              "El NOC le hace ping a cada equipo REAL del inventario para saber si está vivo, aunque no envíe mensajes. "
+              "Si falla 3 veces seguidas (con 10 s, unos 30 s) se registra \"Conectividad · Caído\". 0 = desactivado.", 10, 0, 3600, "s", "PING_INTERVAL_SECONDS"),
     # --- Control de tormentas
     Parametro("ventana_dedup_s", "Ventana para agrupar mensajes repetidos",
               "Un mensaje idéntico del mismo equipo dentro de esta ventana se cuenta como repetición.", 60, 0, 3600, "s", "DEDUP_WINDOW_SECONDS"),
@@ -55,6 +58,21 @@ PARAMETROS = {p.clave: p for p in [
     Parametro("horario_fin", "Fin del horario laboral", "Hora en que termina el horario laboral.", 19, 1, 24, "h", "BUSINESS_END"),
     Parametro("desfase_utc", "Zona horaria (desfase respecto a UTC)",
               "Colombia es -5. Se usa para saber la hora local de cada evento.", -5, -12, 14, "h", "UTC_OFFSET_HOURS"),
+    # --- Defensa frente a agentes automatizados o de IA
+    Parametro("aprobacion_ventana_min", "Cambio en el equipo sin aprobación en el NOC",
+              "Si un equipo reporta por Syslog un cambio de configuración y en el NOC no hay un cambio APROBADO "
+              "para ese equipo en estos minutos, se genera una detección (alguien cambió el equipo por fuera del "
+              "flujo de aprobación). 0 = desactivado.", 15, 0, 1440, "min"),
+    Parametro("consola_max_por_minuto", "Máximo de comandos por usuario por minuto en la consola",
+              "Una persona escribe pocos comandos por minuto; una ráfaga indica un agente automatizado. Al superarlo, "
+              "la consola de ese usuario queda en pausa 5 minutos, se audita y se crea una detección.", 30, 5, 1000, "cmd/min"),
+    # --- Alertas por Telegram (el token y el chat_id van en .env, nunca aquí)
+    Parametro("telegram_severidad", "Severidad que se avisa por Telegram",
+              "Los eventos con esta severidad o más graves (número menor) se envían por Telegram, además de "
+              "las caídas por ping y las detecciones nuevas.", 2, 0, 7, "", "TELEGRAM_MAX_SEVERITY"),
+    Parametro("telegram_espera_min", "No repetir la misma alerta antes de",
+              "Anti-inundación: la misma alerta (mismo equipo y motivo) no se envía otra vez en este tiempo. "
+              "Además hay un máximo de 20 mensajes por minuto.", 5, 0, 1440, "min"),
     # --- Datos
     Parametro("dias_retencion", "Días de retención de eventos",
               "Los eventos más antiguos se eliminan automáticamente, salvo los vinculados a incidentes.", 90, 1, 3650, "días", "RETENTION_DAYS"),
