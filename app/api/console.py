@@ -19,8 +19,11 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.console import audit, ssh
+from app import config
 from app.console.simulator import PERFILES, evaluar, rol_minimo
 from app.database import get_db
+from app.incidents import detecciones
+from app.security.defensa_ia import rafagas
 from app.security.auth import NOMBRE_ROL, requiere
 from app.utils import a_csv
 
@@ -63,6 +66,16 @@ def ejecutar(datos: Comando, u: dict = Depends(requiere("lector")), conn: sqlite
     if datos.perfil not in PERFILES:
         raise HTTPException(422, f"Perfil desconocido. Opciones: {', '.join(PERFILES)}")
     equipo = _equipo(conn, datos.device_id)
+    # Defensa IA (contener): una ráfaga de comandos pausa la consola de ese usuario
+    maximo = config.obtener(conn, "consola_max_por_minuto")
+    permitido, cantidad, espera = rafagas.registrar(u["usuario"], maximo)
+    if not permitido:
+        if cantidad > maximo:  # se acaba de superar: queda auditado y se crea la detección (una vez)
+            audit.registrar(conn, u["usuario"], datos.device_id, datos.comando.strip()[:200], "BLOQUEADO",
+                            f"Ráfaga: más de {maximo} comandos por minuto. Consola en pausa {espera // 60} min")
+            detecciones.rafaga(conn, u["usuario"], datos.device_id, maximo)
+        raise HTTPException(429, f"Demasiados comandos seguidos (máx. {maximo} por minuto). "
+                                 f"Su consola está en pausa {max(1, espera // 60)} min por seguridad.")
     real = ssh.habilitado(equipo) and ssh.PERFIL_POR_MARCA.get(equipo["marca"]) == datos.perfil
 
     r = evaluar(datos.perfil, datos.comando, u["rol"])  # la decisión depende del rol de la sesión

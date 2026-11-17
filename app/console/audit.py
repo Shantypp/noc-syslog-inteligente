@@ -60,8 +60,9 @@ def decidir(conn: sqlite3.Connection, audit_id: int, revisor: str, aprobar: bool
         fila["resultado"] = "APROBADA · ejecución SIMULADA: el equipo no se gestiona por SSH real"
     else:
         fila["resultado"] = ("APROBADA · " + ejecutor(fila))[:1000]
-    conn.execute("UPDATE command_audit SET aprobado_por = ?, resultado = ?, hash_evidencia = ? WHERE id = ?",
-                 (fila["aprobado_por"], fila["resultado"], calcular_hash(fila), audit_id))
+    conn.execute("UPDATE command_audit SET aprobado_por = ?, resultado = ?, hash_evidencia = ?, decidido_en = ? "
+                 "WHERE id = ?", (fila["aprobado_por"], fila["resultado"], calcular_hash(fila),
+                                  a_texto(ahora_utc()), audit_id))
     conn.commit()
     return fila
 

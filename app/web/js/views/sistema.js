@@ -17,6 +17,7 @@ const GRUPOS = [
   ["Control de tormentas", ["ventana_dedup_s", "limite_por_minuto"]],
   ["Detecciones automáticas", ["fuerza_bruta_intentos", "fuerza_bruta_ventana_min", "inestable_cambios", "inestable_ventana_min",
     "horario_inicio", "horario_fin", "desfase_utc"]],
+  ["Defensa frente a agentes automatizados o de IA", ["aprobacion_ventana_min", "consola_max_por_minuto"]],
   ["Alertas por Telegram", ["telegram_severidad", "telegram_espera_min"]],
   ["Datos", ["dias_retencion"]],
 ];

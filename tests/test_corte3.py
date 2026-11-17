@@ -257,3 +257,52 @@ def test_sin_red_de_gestion_un_solo_aviso_y_ningun_equipo_caido(conn, client, te
     assert not any(a["tipo"] == "sin_comunicacion" for a in d["atencion"])
     monitoreo.actualizar_red(conn, True, equipos)
     assert "[RED OK]" in telegram_falso[-1][2]
+
+
+# ---------------------------------------------------------------- Defensa frente a agentes de IA
+
+def test_rafaga_de_comandos_pausa_la_consola_y_queda_detectada(client):
+    client.put("/api/sistema/configuracion", json={"valores": {"consola_max_por_minuto": 5}})
+    codigos = [client.post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": "show clock"}).status_code
+               for _ in range(8)]
+    assert codigos == [200] * 5 + [429] * 3
+    bloqueos = [f for f in client.get("/api/auditoria").json() if f["resultado"].startswith("Ráfaga")]
+    assert len(bloqueos) == 1  # se audita el momento del bloqueo, no cada intento (no se inunda la auditoría)
+    [d] = client.get("/api/detecciones").json()
+    assert d["regla"] == "rafaga_comandos" and "admin1" in d["detalle"]
+
+
+def test_la_pausa_es_por_usuario(client, como):
+    client.put("/api/sistema/configuracion", json={"valores": {"consola_max_por_minuto": 5}})
+    for _ in range(6):
+        client.post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": "show clock"})
+    otro = como("oper").post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": "show clock"})
+    assert otro.status_code == 200
+
+
+def test_cambio_en_el_equipo_sin_aprobacion_se_detecta(conn):
+    from app.collector import ingest
+    ingest.procesar_mensaje(conn, "<189>R2-LAB: %SYS-5-CONFIG_I: Configured from console by admin on vty0 (192.168.50.10)",
+                            "192.168.50.2")
+    [d] = [dict(r) for r in conn.execute("SELECT * FROM detecciones WHERE regla = 'cambio_sin_aprobacion'")]
+    assert "no hay un cambio aprobado" in d["detalle"]
+
+
+def test_cambio_aprobado_en_el_noc_no_genera_deteccion(conn):
+    from app.collector import ingest
+    from app.console import audit
+    propuesta = audit.registrar(conn, "oper", 1, "logging host 192.168.50.10", "PROPUESTA", audit.PENDIENTE)
+    audit.decidir(conn, propuesta, "admin2", aprobar=True)
+    ingest.procesar_mensaje(conn, "<189>R2-LAB: %SYS-5-CONFIG_I: Configured from console by admin on vty0 (192.168.50.10)",
+                            "192.168.50.2")
+    assert conn.execute("SELECT COUNT(*) FROM detecciones WHERE regla = 'cambio_sin_aprobacion'").fetchone()[0] == 0
+    assert audit.verificar_integridad(conn)["alterados"] == []  # decidido_en no rompe el hash
+
+
+def test_cambio_rechazado_no_cuenta_como_aprobado(conn):
+    from app.collector import ingest
+    from app.console import audit
+    propuesta = audit.registrar(conn, "oper", 1, "logging host 192.168.50.10", "PROPUESTA", audit.PENDIENTE)
+    audit.decidir(conn, propuesta, "admin2", aprobar=False, motivo="no")
+    ingest.procesar_mensaje(conn, "<189>R2-LAB: %SYS-5-CONFIG_I: Configured from console by admin on vty0", "192.168.50.2")
+    assert conn.execute("SELECT COUNT(*) FROM detecciones WHERE regla = 'cambio_sin_aprobacion'").fetchone()[0] == 1

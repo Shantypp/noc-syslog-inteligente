@@ -58,6 +58,14 @@ PARAMETROS = {p.clave: p for p in [
     Parametro("horario_fin", "Fin del horario laboral", "Hora en que termina el horario laboral.", 19, 1, 24, "h", "BUSINESS_END"),
     Parametro("desfase_utc", "Zona horaria (desfase respecto a UTC)",
               "Colombia es -5. Se usa para saber la hora local de cada evento.", -5, -12, 14, "h", "UTC_OFFSET_HOURS"),
+    # --- Defensa frente a agentes automatizados o de IA
+    Parametro("aprobacion_ventana_min", "Cambio en el equipo sin aprobación en el NOC",
+              "Si un equipo reporta por Syslog un cambio de configuración y en el NOC no hay un cambio APROBADO "
+              "para ese equipo en estos minutos, se genera una detección (alguien cambió el equipo por fuera del "
+              "flujo de aprobación). 0 = desactivado.", 15, 0, 1440, "min"),
+    Parametro("consola_max_por_minuto", "Máximo de comandos por usuario por minuto en la consola",
+              "Una persona escribe pocos comandos por minuto; una ráfaga indica un agente automatizado. Al superarlo, "
+              "la consola de ese usuario queda en pausa 5 minutos, se audita y se crea una detección.", 30, 5, 1000, "cmd/min"),
     # --- Alertas por Telegram (el token y el chat_id van en .env, nunca aquí)
     Parametro("telegram_severidad", "Severidad que se avisa por Telegram",
               "Los eventos con esta severidad o más graves (número menor) se envían por Telegram, además de "

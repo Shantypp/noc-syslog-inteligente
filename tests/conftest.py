@@ -63,3 +63,13 @@ def como(sin_sesion):
 def client(como):
     """Cliente con sesión de administrador (la mayoría de las pruebas)."""
     return como("admin1")
+
+
+@pytest.fixture(autouse=True)
+def _limpiar_contadores_en_memoria():
+    """Los controles anti-ráfaga y anti-inundación viven en memoria: cada prueba empieza de cero."""
+    from app.notificaciones import telegram
+    from app.security.defensa_ia import rafagas
+    rafagas.reiniciar()
+    telegram.reiniciar()
+    yield
