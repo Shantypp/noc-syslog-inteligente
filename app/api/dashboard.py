@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends
 from app.api.events import enriquecer
 from app import config
 from app.api.puertos import estado_componentes
-from app.collector import ingest
+from app.collector import ingest, monitoreo
 from app.console.audit import PENDIENTE
 from app.database import get_db
 from app.incidents.policy import SLA_MINUTOS, contar_propuestas, minutos_sin_comunicacion, umbral_incidente
@@ -30,7 +30,10 @@ def estado_equipos(conn: sqlite3.Connection) -> list[dict]:
       - equipos reales con ping reciente: 'activo' si responde, 'sin_comunicacion' si no
       - si no hay ping (equipos simulados o ping desactivado): 'activo' si envió eventos
         en los últimos minutos configurados, 'sin_comunicacion' si no
+      - si el NOC no está conectado a la red de gestión, los equipos reales quedan 'desconocido'
+        (no se puede saber si están vivos: no es culpa de ellos)
     """
+    sin_red = monitoreo.RED_GESTION["conectado"] is False
     limite = hace(minutos=minutos_sin_comunicacion(conn))
     intervalo = config.obtener(conn, "intervalo_ping_s")
     ping_vigente = hace(minutos=max(1, 3 * intervalo / 60)) if intervalo else None
@@ -54,6 +57,8 @@ def estado_equipos(conn: sqlite3.Connection) -> list[dict]:
                                   else "No responde al ping")
         if eq["estado"] != "activo":
             eq["estado_operativo"] = eq["estado"]
+        elif sin_red and eq["origen"] == "real":
+            eq["estado_operativo"], eq["conectividad"] = "desconocido", "El NOC no está conectado a la red de gestión"
         elif con_ping:
             eq["estado_operativo"] = "activo" if eq["alcanzable"] == 1 else "sin_comunicacion"
         elif not eq["ultimo_evento"] or eq["ultimo_evento"] < limite:
@@ -74,6 +79,11 @@ def bandeja(conn: sqlite3.Connection, usuario: dict, equipos: list[dict]) -> lis
     def agregar(prioridad, tipo, titulo, detalle, enlace, severidad=None):
         items.append({"prioridad": prioridad, "tipo": tipo, "titulo": titulo, "detalle": detalle,
                       "enlace": enlace, "severidad": severidad})
+
+    if monitoreo.RED_GESTION["conectado"] is False:
+        agregar(0, "red", "El NOC no está conectado a la red de gestión",
+                f"Ningún equipo real responde y este computador no tiene IP en {', '.join(monitoreo.RED_GESTION['redes'])}. "
+                "Revise el cable o la red del servidor NOC; mientras tanto no se declaran caídas.", "inventario")
 
     ahora = ahora_utc()
     for i in conn.execute("SELECT i.id, i.titulo, i.severidad, i.abierto_en, i.recuperado_en, i.responsable, "

@@ -7,6 +7,8 @@ api/sistema.py — Estado y administración del sistema.
     GET  /api/sistema/respaldo         descargar una copia de la base de datos (administrador)
     POST /api/sistema/demo             cargar equipos y eventos SIMULADOS de demostración (administrador)
     POST /api/sistema/retencion        borrar eventos antiguos según los días de retención (administrador)
+    GET  /api/sistema/telegram         ¿están configuradas las alertas? (token y chat enmascarados) (administrador)
+    POST /api/sistema/telegram/prueba  enviar un mensaje de prueba (administrador)
 """
 
 import os
@@ -20,8 +22,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app import VERSION, config, mantenimiento
-from app.collector import ingest, udp_server
+from app.collector import ingest, monitoreo, udp_server
 from app.database import get_db
+from app.notificaciones import telegram
 from app.security.auth import requiere
 from app.seed import insertar_equipos_simulados
 from app.utils import ahora_utc, hace
@@ -58,6 +61,7 @@ def estado(u: dict = Depends(requiere("lector")), conn: sqlite3.Connection = Dep
                 "puerto": udp_server.ESTADO["puerto"] or int(os.getenv("SYSLOG_UDP_PORT", "5514")),
                 "solo_local": solo_local},
         "ips_del_equipo": ips_del_equipo(),
+        "red_gestion": dict(monitoreo.RED_GESTION),
         "eventos_ultimo_minuto": uno("SELECT COALESCE(SUM(repeticiones), 0) FROM events WHERE recibido_en >= ?", hace(minutos=1)),
         "eventos_ultima_hora": uno("SELECT COALESCE(SUM(repeticiones), 0) FROM events WHERE recibido_en >= ?", hace(horas=1)),
         "ultimo_evento": uno("SELECT MAX(recibido_en) FROM events"),
@@ -116,3 +120,18 @@ def cargar_demo(u: dict = Depends(ADMIN), conn: sqlite3.Connection = Depends(get
 @router.post("/retencion")
 def retencion(u: dict = Depends(ADMIN), conn: sqlite3.Connection = Depends(get_db)):
     return mantenimiento.purgar_antiguos(conn)
+
+
+@router.get("/telegram")
+def estado_telegram(u: dict = Depends(ADMIN)):
+    """Nunca devuelve el token ni el chat_id completos."""
+    return telegram.estado()
+
+
+@router.post("/telegram/prueba")
+def prueba_telegram(u: dict = Depends(ADMIN)):
+    ok, detalle = telegram.enviar_ahora(f"Mensaje de prueba enviado por {u['usuario']} desde la pantalla Configuración. "
+                                         "Si lo recibe, las alertas del NOC llegarán a este chat.")
+    if not ok:
+        raise HTTPException(502 if telegram.configurado() else 409, detalle)
+    return {"ok": True, "detalle": detalle}

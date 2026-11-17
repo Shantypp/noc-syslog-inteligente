@@ -13,6 +13,11 @@ a cada equipo REAL del inventario cada N segundos (Configuración › intervalo_
 
 Solo se hace ping a los equipos del inventario marcados como reales y activos
 (nunca a las IPs simuladas ni a direcciones que no estén en el inventario).
+
+Corte 3 (hallazgo de la marcha blanca): si el computador del NOC NO está conectado a la red
+de los equipos (ninguna IP propia en su red /24 y ningún equipo responde), no tiene sentido
+declarar N equipos caídos: se muestra un solo aviso "NOC sin conexión a la red de gestión"
+y se envía una sola alerta. Cuando la red vuelve, el monitoreo sigue normal.
 """
 
 import asyncio
@@ -20,12 +25,14 @@ import ipaddress
 import logging
 import os
 import re
+import socket
 import sqlite3
 import subprocess
 
 from app import config
 from app.database import get_connection
 from app.incidents import correlacion, detecciones
+from app.notificaciones import alertas
 from app.utils import a_texto, ahora_utc
 
 log = logging.getLogger("noc.monitoreo")
@@ -33,6 +40,54 @@ log = logging.getLogger("noc.monitoreo")
 FALLOS_PARA_CAIDO = 3            # fallos seguidos antes de declarar el equipo caído
 COMPONENTE = "Conectividad (ping)"
 _TIEMPO = re.compile(r"(?:time|tiempo)\s*[=<]\s*(\d+(?:[.,]\d+)?)", re.IGNORECASE)
+# ¿El NOC está conectado a la red de los equipos? (None = todavía no se sabe)
+RED_GESTION = {"conectado": None, "redes": [], "desde": None}
+
+
+def ips_locales() -> list[str]:
+    try:
+        return sorted({ip for ip in socket.gethostbyname_ex(socket.gethostname())[2] if not ip.startswith("127.")})
+    except OSError:
+        return []
+
+
+def redes_de(equipos: list[dict]) -> list[str]:
+    """Redes /24 de los equipos reales (ej. 192.168.50.0/24)."""
+    redes = set()
+    for e in equipos:
+        try:
+            redes.add(str(ipaddress.ip_network(f"{e['ip']}/24", strict=False)))
+        except ValueError:
+            pass
+    return sorted(redes)
+
+
+def hay_red_de_gestion(equipos: list[dict], resultados: list[tuple[bool, int | None]],
+                       locales: list[str] | None = None) -> bool:
+    """
+    Conectado si algún equipo respondió, o si el NOC tiene una IP dentro de la red de los equipos.
+    (Si los equipos están detrás de un router, basta con que uno responda.)
+    """
+    if any(responde for responde, _ in resultados):
+        return True
+    locales = ips_locales() if locales is None else locales
+    redes = [ipaddress.ip_network(r) for r in redes_de(equipos)]
+    return any(ipaddress.ip_address(ip) in red for ip in locales for red in redes)
+
+
+def actualizar_red(conn: sqlite3.Connection, conectado: bool, equipos: list[dict]) -> bool:
+    """Guarda el estado de la red de gestión y avisa SOLO cuando cambia. Devuelve True si cambió."""
+    antes = RED_GESTION["conectado"]
+    RED_GESTION.update(conectado=conectado, redes=redes_de(equipos))
+    if antes == conectado:
+        return False
+    RED_GESTION["desde"] = a_texto(ahora_utc())
+    if conectado is False:
+        log.warning("El NOC no está conectado a la red de gestión %s", RED_GESTION["redes"])
+        alertas.red_de_gestion(conn, False, RED_GESTION["redes"])
+    elif antes is False:
+        alertas.red_de_gestion(conn, True, RED_GESTION["redes"])
+    return True
 
 
 def interpretar_ping(salida: str, codigo: int) -> tuple[bool, int | None]:
@@ -86,9 +141,11 @@ def registrar_resultado(conn: sqlite3.Connection, equipo: dict, responde: bool, 
                  (ahora, a_texto(ahora_utc()), latencia if responde else None, fallos, equipo["id"]))
     conn.commit()
     if ahora == 0 and antes != 0:
+        alertas.conectividad(conn, equipo, caido=True)
         return _registrar_evento(conn, equipo, 2, "Caído",
                                  f"[NOC] {equipo['nombre']} no responde al ping ({FALLOS_PARA_CAIDO} intentos seguidos)")
     if ahora == 1 and antes == 0:
+        alertas.conectividad(conn, equipo, caido=False, latencia=latencia)
         return _registrar_evento(conn, equipo, 5, "Arriba",
                                  f"[NOC] {equipo['nombre']} responde nuevamente al ping"
                                  + (f" ({latencia} ms)" if latencia is not None else ""))
@@ -117,8 +174,11 @@ async def ciclo() -> None:
                 resultados = await asyncio.gather(*(asyncio.to_thread(hacer_ping, e["ip"]) for e in equipos))
                 conn = get_connection()
                 try:
-                    for equipo, (responde, latencia) in zip(equipos, resultados):
-                        registrar_resultado(conn, equipo, responde, latencia)
+                    conectado = await asyncio.to_thread(hay_red_de_gestion, equipos, resultados)
+                    actualizar_red(conn, conectado, equipos)
+                    if conectado:  # sin red de gestión no se declara caído a nadie (sería una falsa alarma)
+                        for equipo, (responde, latencia) in zip(equipos, resultados):
+                            registrar_resultado(conn, equipo, responde, latencia)
                 finally:
                     conn.close()
         except Exception:  # un error de una ronda no debe detener el monitoreo
