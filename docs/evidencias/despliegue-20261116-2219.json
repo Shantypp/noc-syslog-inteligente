@@ -1,0 +1,39 @@
+{
+  "fecha": "2026-11-16T22:19:25",
+  "datos": "SIMULADOS",
+  "anterior": "v0.2.0",
+  "nueva": "731677f053f5",
+  "pasos": [
+    {
+      "paso": "1. v0.2.0 en marcha",
+      "version_reportada": "0.2.0",
+      "arranque_s": 1.36,
+      "equipos": 1,
+      "eventos": 20,
+      "columna_ssh_habilitado": false
+    },
+    {
+      "paso": "2. Respaldo",
+      "archivo": "noc-20261116-221929.db"
+    },
+    {
+      "paso": "3. Despliegue versión nueva",
+      "version_reportada": "1.0.0",
+      "duracion_total_s": 2.72,
+      "equipos": 1,
+      "eventos": 20,
+      "columna_ssh_habilitado": true,
+      "sin_perdida_de_datos": true
+    },
+    {
+      "paso": "4. Rollback a v0.2.0",
+      "version_reportada": "0.2.0",
+      "duracion_total_s": 1.68,
+      "equipos": 1,
+      "eventos": 20,
+      "columna_ssh_habilitado": false,
+      "datos_iguales_a_antes_del_despliegue": true
+    }
+  ],
+  "exito": true
+}

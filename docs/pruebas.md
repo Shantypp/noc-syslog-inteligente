@@ -1,6 +1,8 @@
-# Pruebas · v0.2.0
+# Pruebas · v1.0.0
 
-Ejecutar: `pytest -v` → **138 pruebas, todas pasan**.
+Ejecutar: `python -m pytest -v` → **185 pruebas, todas pasan** (16-nov-2026). En v0.2.0 eran 138.
+
+Cada prueba usa una base de datos temporal. Ninguna se conecta a equipos reales ni a Telegram: Netmiko y la API de Telegram se reemplazan por versiones simuladas, y las credenciales de prueba son valores inventados.
 
 ## Pruebas automáticas por módulo
 
@@ -10,8 +12,10 @@ Ejecutar: `pytest -v` → **138 pruebas, todas pasan**.
 | `test_auth_roles.py` | Inicio de sesión, bloqueo por intentos, cierre de sesión, cambio de clave, permisos por rol, identidad desde la sesión, gestión de usuarios | 13 |
 | `test_puertos.py` | Identificación de puertos y componentes (Cisco, Huawei, FortiGate, fuentes, sensores, HA, VPN), estado actual y panel | 14 |
 | `test_devices.py` | CRUD de inventario, 422 / 404 / 409, filtro por marca | 8 |
-| `test_parser.py` | PRI → facility/severidad, RFC 3164, RFC 5424, Huawei, inválidos | 8 |
-| `test_ingest.py` | Allowlist, laboratorio, deduplicación, rate limit, inyección, importación | 7 |
+| `test_parser.py` | PRI → facility/severidad, RFC 3164, RFC 5424, Huawei, formato real de Cisco (secuencia, uptime), FortiGate, inválidos | 16 |
+| `test_ingest.py` | Allowlist, laboratorio, deduplicación, rate limit, inyección, importación | 8 |
+| `test_monitoreo.py` | Lectura del ping (Windows/Linux), un fallo no basta, caída y recuperación con incidente, estado en el panel | 10 |
+| `test_corte3.py` | Gestor SSH (consulta real, bloqueos que nunca llegan al equipo, cambios aprobados/rechazados, errores sin clave, permisos), Telegram (sin token, una alerta por caída, anti-inundación, texto limpio, token nunca visible), red de gestión, defensa IA (ráfaga, cambio sin aprobación) y equipos con auditoría | 28 |
 | `test_dashboard_incidents.py` | Filtros con total, fechas, panel general, sin comunicación, ciclo de incidente, aprobaciones pendientes | 11 |
 | `test_configgen_console.py` | Plantillas, validación anti-inyección, 18 decisiones de consola, auditoría, aprobación, integridad, CSV | 32 |
 | `test_security.py` | Detección de manipulación, falsos positivos, política, XSS | 11 |
@@ -56,8 +60,59 @@ Ejecutar: `pytest -v` → **138 pruebas, todas pasan**.
 | PS-11 | Configuración inicial desde otra IP o cuando ya hay usuarios | Rechazada (403 / 409) |
 | PS-12 | Exportar un incidente titulado `=HYPERLINK(...)` | La celda se escapa (`'=`): Excel no ejecuta la fórmula |
 
-## Prueba de recuperación
+## Pruebas funcionales del Corte 3
 
-`python scripts/backup_db.py` → borrar datos → `--restaurar <archivo>` → los datos vuelven. Verificado en desarrollo (3 equipos → 0 → 3).
+| ID | Req. | Procedimiento | Resultado esperado | Estado |
+|---|---|---|---|---|
+| PF-18 | Monitoreo | Desconectar el enlace de un equipo real | Caída registrada en ≤ 30 s y recuperación al reconectar | **Hecha, REAL** (21-oct): 5/5, 19–24 s |
+| PF-19 | Gestor SSH | Consola sobre R1-LAB con "Gestión por SSH": `show clock` | Barra "SSH REAL" y salida del equipo | Pendiente en laboratorio (P-01) |
+| PF-20 | Gestor SSH | Proponer `logging trap warnings`; otro administrador aprueba | Cambio aplicado por SSH y auditado | Pendiente en laboratorio (P-02) |
+| PF-21 | Telegram | *Configuración › Enviar mensaje de prueba* y desconectar un equipo | Mensaje de prueba; "[CAIDO]" y "[RECUPERADO]" | Pendiente: requiere crear el bot (P-04) |
+| PF-22 | Red de gestión | Desconectar el cable del servidor NOC | Un solo aviso, ningún equipo caído | Automatizada; pendiente en laboratorio (P-05) |
 
-Respaldo desde la aplicación: *Configuración › Descargar respaldo* produce un archivo SQLite válido (prueba automática `test_demo_respaldo_y_retencion`). La retención conserva los eventos vinculados a incidentes (`test_retencion_conserva_eventos_de_incidentes`).
+## Pruebas de seguridad del Corte 3
+
+| ID | Procedimiento | Esperado | Prueba automática |
+|---|---|---|---|
+| PS-13 | `reload`, `write erase` o `show version ; reload` sobre un equipo con SSH | Nunca llegan al equipo | `test_lo_que_no_esta_permitido_nunca_llega_al_equipo` |
+| PS-14 | Error de conexión SSH | El mensaje no incluye la clave, ni en la consola ni en el CSV | `test_error_de_conexion_no_revela_la_clave` |
+| PS-15 | Operador intenta habilitar SSH en un equipo | 403 | `test_solo_un_administrador_habilita_ssh` |
+| PS-16 | Consultar el estado de Telegram | Token y chat_id enmascarados | `test_la_api_nunca_muestra_el_token` |
+| PS-17 | Telegram falla con el token en el mensaje de error | El token se reemplaza por `***` | `test_error_de_telegram_no_filtra_el_token` |
+| PS-18 | Log con caracteres de control y 5.000 caracteres | Se envía limpio y recortado | `test_el_texto_del_log_se_envia_limpio_y_recortado` |
+| PS-19 | 8 comandos seguidos con máximo 5 por minuto | 5 aceptados, 3 con 429, 1 registro de auditoría y 1 detección | `test_rafaga_de_comandos_pausa_la_consola_y_queda_detectada` |
+| PS-20 | `%SYS-5-CONFIG_I` sin cambio aprobado | Detección "cambio sin aprobación" | `test_cambio_en_el_equipo_sin_aprobacion_se_detecta` |
+| PS-21 | Eliminar un equipo con auditoría | 409; la auditoría sigue íntegra | `test_equipo_con_auditoria_no_se_elimina...` |
+| PS-22 | `git grep` de secretos y revisión de `.env` en el historial | Sin tokens ni claves reales | Manual (ver informe, sección 11) |
+
+## Prueba de carga básica (16-nov-2026, datos SIMULADOS)
+
+`python scripts/prueba_carga.py` levanta un NOC aparte (base temporal) con 3 equipos simulados.
+
+| Medida | Antes de la mejora | Después |
+|---|---|---|
+| 3.000 mensajes a 500 msg/s: guardados | 2.691 (10,3 % perdidos en UDP) | **3.000 (0 %)** |
+| Panel bajo carga: mediana / p95 | 96 ms / 113 ms | **36 ms / 50 ms** |
+| 6.000 mensajes a 1.500 msg/s | — | 6.000 guardados; ~820 msg/s sostenidos |
+| Tormenta: 2.000 mensajes de un equipo a 1.000 msg/s | 300 aceptados, 1 detección | 300 aceptados, 1.700 descartados por límite, 1 detección |
+| Otro equipo durante la tormenta | 50/50 guardados | 50/50 guardados |
+
+Mejora aplicada: una conexión de base de datos para el receptor, registro por mensaje en nivel DEBUG y búfer UDP de 8 MB.
+Archivos: `docs/evidencias/carga-*.json` (el de "diseno-inicial" es una corrida con un error del propio script: los mensajes no tenían el formato correcto y no se tomó en cuenta).
+
+## Prueba de recuperación (16-nov-2026, copia de la base de trabajo)
+
+`python scripts/prueba_respaldo.py`: copia → respaldo → borrar eventos y dañar el archivo → restaurar → verificar.
+
+| Corrida | Eventos recuperados | integrity_check | Resultado |
+|---|---|---|---|
+| Primera | 0 de 74 | ok | **Falló** (H-09, H-10) |
+| Después de corregir | 74 de 74 | ok | Éxito; respaldo 0,17 s, restauración 0,18 s |
+
+Respaldo desde la aplicación: *Configuración › Descargar respaldo* (prueba automática `test_demo_respaldo_y_retencion`).
+La retención conserva los eventos vinculados a incidentes (`test_retencion_conserva_eventos_de_incidentes`).
+
+## Ensayo de despliegue y rollback (16-nov-2026, datos SIMULADOS)
+
+`python scripts/prueba_despliegue.py`: v0.2.0 → respaldo → versión nueva → rollback. Resultado: sin pérdida de datos,
+la base se actualizó sola, rollback en 1,7 s. Procedimiento en [despliegue-rollback.md](despliegue-rollback.md).
