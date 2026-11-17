@@ -58,6 +58,13 @@ PARAMETROS = {p.clave: p for p in [
     Parametro("horario_fin", "Fin del horario laboral", "Hora en que termina el horario laboral.", 19, 1, 24, "h", "BUSINESS_END"),
     Parametro("desfase_utc", "Zona horaria (desfase respecto a UTC)",
               "Colombia es -5. Se usa para saber la hora local de cada evento.", -5, -12, 14, "h", "UTC_OFFSET_HOURS"),
+    # --- Alertas por Telegram (el token y el chat_id van en .env, nunca aquí)
+    Parametro("telegram_severidad", "Severidad que se avisa por Telegram",
+              "Los eventos con esta severidad o más graves (número menor) se envían por Telegram, además de "
+              "las caídas por ping y las detecciones nuevas.", 2, 0, 7, "", "TELEGRAM_MAX_SEVERITY"),
+    Parametro("telegram_espera_min", "No repetir la misma alerta antes de",
+              "Anti-inundación: la misma alerta (mismo equipo y motivo) no se envía otra vez en este tiempo. "
+              "Además hay un máximo de 20 mensajes por minuto.", 5, 0, 1440, "min"),
     # --- Datos
     Parametro("dias_retencion", "Días de retención de eventos",
               "Los eventos más antiguos se eliminan automáticamente, salvo los vinculados a incidentes.", 90, 1, 3650, "días", "RETENTION_DAYS"),

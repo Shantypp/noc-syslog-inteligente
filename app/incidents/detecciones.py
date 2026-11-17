@@ -21,6 +21,7 @@ import sqlite3
 from datetime import timedelta
 
 from app import config
+from app.notificaciones import alertas
 from app.utils import de_texto, hace
 
 REGLAS = {
@@ -58,6 +59,7 @@ def _registrar(conn: sqlite3.Connection, regla: str, device_id: int, clave: str 
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (regla, device_id, clave, r["titulo"], detalle, r["severidad"], cantidad or 1, evento_id))
     conn.commit()
+    alertas.nueva_deteccion(conn, cur.lastrowid)  # solo las NUEVAS se avisan por Telegram
     return cur.lastrowid
 
 

@@ -23,6 +23,7 @@ from collections import Counter
 from app import config
 from app.collector.componentes import identificar
 from app.collector.parser import MensajeInvalido, parse_syslog
+from app.notificaciones import alertas
 from app.incidents import correlacion, detecciones
 from app.security.controls import (LimitadorTasa, es_sospechoso, huella_dedup,
                                    limpiar_mensaje)
@@ -126,6 +127,7 @@ def procesar_mensaje(conn: sqlite3.Connection, crudo: str, ip_origen: str,
     )
     conn.commit()
     evento = dict(conn.execute("SELECT * FROM events WHERE id = ?", (cur.lastrowid,)).fetchone())
+    alertas.evento_grave(conn, evento, equipo)  # Telegram (si está configurado y no es inundación)
     tocadas = detecciones.evaluar(conn, evento)
     incidente = correlacion.relacionar(conn, evento)
     return _contar(conn, "guardado", cur.lastrowid, tocadas, incidente)

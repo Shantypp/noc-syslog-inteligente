@@ -5,6 +5,9 @@ import os
 # En las pruebas no se abre el puerto UDP real
 os.environ["SYSLOG_UDP_ENABLED"] = "0"
 os.environ["NOC_MONITOREO"] = "0"  # ni hace ping a equipos reales
+# Nunca se usan credenciales reales en las pruebas: SSH y Telegram se simulan con monkeypatch
+for _var in ("SSH_USUARIO", "SSH_CLAVE", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
+    os.environ[_var] = ""
 
 import pytest
 from fastapi.testclient import TestClient
