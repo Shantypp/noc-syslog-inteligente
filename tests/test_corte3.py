@@ -306,3 +306,12 @@ def test_cambio_rechazado_no_cuenta_como_aprobado(conn):
     audit.decidir(conn, propuesta, "admin2", aprobar=False, motivo="no")
     ingest.procesar_mensaje(conn, "<189>R2-LAB: %SYS-5-CONFIG_I: Configured from console by admin on vty0", "192.168.50.2")
     assert conn.execute("SELECT COUNT(*) FROM detecciones WHERE regla = 'cambio_sin_aprobacion'").fetchone()[0] == 1
+
+
+def test_equipo_con_auditoria_no_se_elimina_para_no_alterar_la_evidencia(client):
+    equipo = _registrar_equipo(client, False, "simulado", ip="192.0.2.60")
+    client.post("/api/console/ejecutar", json={"perfil": "cisco_ios", "comando": "show clock", "device_id": equipo})
+    assert client.delete(f"/api/devices/{equipo}").status_code == 409
+    assert client.get("/api/auditoria/integridad").json()["alterados"] == []
+    sin_auditoria = _registrar_equipo(client, False, "simulado", nombre="OTRO", ip="192.0.2.61")
+    assert client.delete(f"/api/devices/{sin_auditoria}").status_code == 204

@@ -130,6 +130,12 @@ def editar(device_id: int, datos: DeviceIn, conn: sqlite3.Connection = Depends(g
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=SOLO_ADMIN)
 def eliminar(device_id: int, conn: sqlite3.Connection = Depends(get_db)):
     _buscar(conn, device_id)  # 404 si no existe
+    # Hallazgo del Corte 3: al borrar un equipo, la base ponía en blanco el equipo de sus registros
+    # de auditoría y eso cambiaba la evidencia (el hash ya no coincidía). Un equipo con auditoría
+    # no se borra: se marca como inactivo y la evidencia queda intacta.
+    if conn.execute("SELECT 1 FROM command_audit WHERE device_id = ? LIMIT 1", (device_id,)).fetchone():
+        raise HTTPException(409, "Este equipo tiene registros de auditoría (evidencia con hash). No se puede eliminar: "
+                                 "márquelo como Inactivo en Editar.")
     conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
     conn.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
